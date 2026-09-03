@@ -1,0 +1,15 @@
+{
+  "name": "udf-resimcisi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Resimden tam çözünürlüklü UDF belgesi üreten masaüstü uygulaması",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

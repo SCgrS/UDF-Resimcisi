@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UDF Resimcisi</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>UDF Resimcisi</h1>
+    <p class="alt">Resmi tam çözünürlükle UDF'ye koyar — UYAP editörünün küçültmesine uğramadan.</p>
+  </header>
+
+  <main>
+    <section id="birakma-alani" class="birakma">
+      <div class="birakma-ic">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="ikon">
+          <path d="M4 16.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5" />
+          <path d="M12 3v12" />
+          <path d="M7.5 7.5 12 3l4.5 4.5" />
+        </svg>
+        <p class="buyuk">Resimleri buraya sürükleyin</p>
+        <p class="alt">PNG, JPEG, WEBP, BMP, TIFF, GIF — birden fazla olabilir</p>
+        <div class="dugmeler">
+          <button id="dosya-sec" type="button">Dosya seç</button>
+          <button id="panodan-al" type="button" class="ikincil">Panodaki resmi al</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="liste-bolumu" hidden>
+      <div class="bolum-basligi">
+        <h2>Eklenen resimler <span id="sayac" class="rozet">0</span></h2>
+        <button id="listeyi-temizle" type="button" class="baglanti">Tümünü kaldır</button>
+      </div>
+      <ul id="liste" class="liste"></ul>
+    </section>
+
+    <section class="secenekler">
+      <h2>Seçenekler</h2>
+
+      <div class="satir">
+        <label class="onay">
+          <input type="checkbox" id="ayri-sayfa" checked />
+          <span>Her resim ayrı sayfada</span>
+        </label>
+      </div>
+
+      <div class="satir">
+        <span class="etiket">Görüntüleme boyutu</span>
+        <div class="secim-grubu">
+          <label class="secim"><input type="radio" name="boyut" value="sigdir" checked /><span>Sayfaya sığdır</span></label>
+          <label class="secim"><input type="radio" name="boyut" value="yuzde100" /><span>%100 (1 px = 1 pt)</span></label>
+          <label class="secim"><input type="radio" name="boyut" value="cm" /><span>Genişlik</span></label>
+          <input type="number" id="boyut-cm" value="15" min="1" max="60" step="0.5" disabled />
+          <span class="alt" id="cm-birim">cm</span>
+        </div>
+      </div>
+
+      <div class="satir">
+        <span class="etiket">Çıktı klasörü</span>
+        <div class="yol-satiri">
+          <input type="text" id="cikti-klasoru" readonly />
+          <button id="klasor-sec" type="button" class="ikincil">Değiştir</button>
+        </div>
+      </div>
+
+      <div class="satir ikili">
+        <label class="onay">
+          <input type="checkbox" id="otomasyon" checked />
+          <span>Otomasyon: Ctrl+A / Ctrl+C'yi ben göndereyim</span>
+        </label>
+        <label class="onay">
+          <input type="checkbox" id="uyari-9mb" checked />
+          <span>9 MB üstünde uyar</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="kipler">
+      <h2>Ne yapılsın?</h2>
+      <label class="kip">
+        <input type="radio" name="kip" value="A" checked />
+        <span>
+          <strong>Panoya kopyala</strong>
+          <em>Belge UDE'de açılır, içeriği panoya alınır; siz dilekçenizde sadece Ctrl+V yaparsınız.</em>
+        </span>
+      </label>
+      <label class="kip">
+        <input type="radio" name="kip" value="B" />
+        <span>
+          <strong>UDF'yi aç</strong>
+          <em>Belge kaydedilir ve açılır; kopyalama yapılmaz.</em>
+        </span>
+      </label>
+    </section>
+
+    <section id="kilavuz" class="kilavuz" hidden>
+      <h3 id="kilavuz-baslik">Şimdi ne yapmalısınız</h3>
+      <p id="kilavuz-metin"></p>
+      <div class="dugmeler">
+        <button id="kilavuz-klasor" type="button" class="ikincil">Klasörü aç</button>
+        <button id="kilavuz-kapat" type="button" class="baglanti">Kapat</button>
+      </div>
+    </section>
+
+    <section id="buyuk-uyari" class="uyari" hidden>
+      <h3>Belge büyük</h3>
+      <p id="buyuk-metin"></p>
+      <div class="dugmeler">
+        <button id="kucult-uret" type="button">300 DPI'lık küçük sürüm oluştur</button>
+        <button id="buyuk-kapat" type="button" class="baglanti">Böyle kalsın</button>
+      </div>
+    </section>
+
+    <!-- Ana eylem en sonda ve alta yapışık: liste uzasa da hep görünür kalır. -->
+    <div class="eylem">
+      <button id="uret" type="button" class="birincil" disabled>UDF oluştur</button>
+      <p id="durum" class="durum" role="status" aria-live="polite"></p>
+    </div>
+  </main>
+
+  <footer>
+    <p class="alt">
+      Tamamen yerel çalışır; hiçbir veri gönderilmez. UYAP/HAVELSAN ile ilişkili değildir.
+    </p>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>

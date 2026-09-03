@@ -1,0 +1,181 @@
+:root {
+  --zemin: #f6f7f9;
+  --kart: #ffffff;
+  --metin: #16202b;
+  --alt-metin: #5b6b7c;
+  --cizgi: #dbe2ea;
+  --vurgu: #1b6fc4;
+  --vurgu-koyu: #14548f;
+  --vurgu-zemin: #e8f1fb;
+  --uyari: #a8600a;
+  --uyari-zemin: #fdf3e3;
+  --iyi: #1c7a4a;
+  --golge: 0 1px 2px rgba(16, 32, 48, .06), 0 4px 12px rgba(16, 32, 48, .05);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --zemin: #12171d;
+    --kart: #1a212a;
+    --metin: #e7edf4;
+    --alt-metin: #9aa9b9;
+    --cizgi: #2c3743;
+    --vurgu: #59a5f0;
+    --vurgu-koyu: #8cc2fb;
+    --vurgu-zemin: #17293c;
+    --uyari: #e6b361;
+    --uyari-zemin: #2e2517;
+    --iyi: #62c48f;
+    --golge: 0 1px 2px rgba(0, 0, 0, .4);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 20px 22px 0;
+  background: var(--zemin);
+  color: var(--metin);
+  font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 14px; margin: 0 0 10px; letter-spacing: .01em; }
+h3 { font-size: 14px; margin: 0 0 6px; }
+.alt { color: var(--alt-metin); font-size: 12.5px; margin: 2px 0 0; }
+
+header { margin-bottom: 16px; }
+
+main { display: flex; flex-direction: column; gap: 14px; }
+
+section {
+  background: var(--kart);
+  border: 1px solid var(--cizgi);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: var(--golge);
+}
+
+/* --- bırakma alanı --- */
+.birakma {
+  border: 2px dashed var(--cizgi);
+  background: var(--kart);
+  text-align: center;
+  padding: 20px 16px;
+  transition: border-color .12s, background .12s;
+}
+.birakma.aktif {
+  border-color: var(--vurgu);
+  background: var(--vurgu-zemin);
+}
+.birakma .ikon {
+  width: 40px; height: 40px;
+  stroke: var(--vurgu); stroke-width: 1.8; fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+  margin-bottom: 6px;
+}
+.buyuk { font-size: 15px; font-weight: 600; margin: 0; }
+.dugmeler { display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+
+/* --- düğmeler --- */
+button {
+  font: inherit;
+  padding: 8px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--vurgu);
+  background: var(--vurgu);
+  color: #fff;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--vurgu-koyu); border-color: var(--vurgu-koyu); }
+button:disabled { opacity: .5; cursor: default; }
+button.ikincil { background: transparent; color: var(--vurgu); }
+button.ikincil:hover:not(:disabled) { background: var(--vurgu-zemin); color: var(--vurgu); }
+button.baglanti {
+  background: none; border: none; color: var(--alt-metin);
+  padding: 6px 8px; text-decoration: underline;
+}
+button.baglanti:hover { color: var(--metin); background: none; }
+button.birincil { font-size: 15px; font-weight: 600; padding: 11px 26px; }
+
+/* --- liste --- */
+.bolum-basligi { display: flex; align-items: center; justify-content: space-between; }
+.rozet {
+  display: inline-block; min-width: 20px; text-align: center;
+  background: var(--vurgu-zemin); color: var(--vurgu);
+  border-radius: 10px; padding: 0 7px; font-size: 12px; font-weight: 600;
+}
+.liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.liste li {
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--cizgi); border-radius: 8px; padding: 8px 10px;
+}
+.liste img {
+  width: 64px; height: 48px; object-fit: contain;
+  background: var(--zemin); border-radius: 4px; flex: none;
+}
+.liste .bilgi { flex: 1; min-width: 0; }
+.liste .ad { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liste .olcu { color: var(--alt-metin); font-size: 12.5px; }
+.liste .isaret { color: var(--iyi); font-size: 12.5px; }
+.liste .tas { color: var(--uyari); font-size: 12.5px; }
+
+/* --- seçenekler --- */
+.satir { display: flex; align-items: center; gap: 12px; padding: 7px 0; flex-wrap: wrap; }
+.satir.ikili { gap: 24px; }
+.etiket { min-width: 130px; color: var(--alt-metin); }
+.secim-grubu { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.onay, .secim { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--vurgu); width: 15px; height: 15px; }
+input[type="number"], input[type="text"] {
+  font: inherit; color: var(--metin); background: var(--zemin);
+  border: 1px solid var(--cizgi); border-radius: 6px; padding: 6px 8px;
+}
+input[type="number"] { width: 72px; }
+input[type="number"]:disabled { opacity: .45; }
+.yol-satiri { display: flex; gap: 8px; flex: 1; min-width: 260px; }
+.yol-satiri input { flex: 1; }
+
+/* --- kipler --- */
+.kip { display: flex; gap: 10px; align-items: flex-start; padding: 9px; border-radius: 8px; cursor: pointer; }
+.kip:hover { background: var(--zemin); }
+.kip input { margin-top: 3px; }
+.kip strong { display: block; }
+.kip em { color: var(--alt-metin); font-style: normal; font-size: 12.5px; }
+
+/* --- eylem ---
+   Ana eylem her zaman görünür kalsın: liste uzayınca sayfa kaysa bile alta yapışır. */
+.eylem {
+  position: sticky;
+  bottom: -1px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 -22px -8px;
+  padding: 12px 22px;
+  background: var(--zemin);
+  border-top: 1px solid var(--cizgi);
+  box-shadow: 0 -8px 14px -8px rgba(0, 0, 0, .28);
+}
+.durum { margin: 0; color: var(--alt-metin); }
+.durum.iyi { color: var(--iyi); font-weight: 600; }
+.durum.kotu { color: #c0392b; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .durum.kotu { color: #f08a7d; } }
+
+/* --- kılavuz ve uyarı --- */
+.kilavuz { border-color: var(--vurgu); background: var(--vurgu-zemin); }
+.kilavuz .dugmeler, .uyari .dugmeler { justify-content: flex-start; margin-top: 10px; }
+.uyari { border-color: var(--uyari); background: var(--uyari-zemin); }
+.uyari h3 { color: var(--uyari); }
+
+footer { margin: 12px 0 16px; text-align: center; }
+
+/* metin seçilebilir kalsın istediğimiz yerler */
+.durum, .liste .olcu, #kilavuz-metin, #buyuk-metin, input { -webkit-user-select: text; user-select: text; }

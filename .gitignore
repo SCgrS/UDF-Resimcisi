@@ -1,0 +1,18 @@
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Node
+node_modules/
+package-lock.json
+
+# Doğrulama araçlarının derleme çıktısı
+tools/out/
+
+# Test görselleri, üretilen .udf'ler ve ekran görüntüleri (ölçüm sonuçları
+# DOGRULAMA.md'de yazılı; ham dosyaları depoda tutmuyoruz)
+testdata/
+
+# Windows
+Thumbs.db
+desktop.ini
