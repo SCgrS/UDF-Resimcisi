@@ -5,6 +5,26 @@ UYAP Doküman Editörü'nün (UDE) resmi belgeye alırken uyguladığı küçül
 
 ![Uygulama simgesi](src-tauri/icons/128x128.png)
 
+## İndir
+
+### ➡️ [Windows için indir — UDF-Resimcisi-kurulum.exe](https://github.com/SCgrS/udf-resimcisi/releases/latest/download/UDF-Resimcisi-kurulum.exe)
+
+Bağlantıya tıklayınca dosya doğrudan inmeye başlar. İnen dosyaya çift tıklayın, kurulum biter;
+yönetici izni istemez, Başlat menüsüne kısayol koyar.
+
+Windows **"Bilgisayarınız korundu"** uyarısı gösterirse: **Daha fazla bilgi → Yine de çalıştır.**
+Sebebi kod imzalama sertifikası olmaması; uygulama tamamen yerel çalışır, ağa hiçbir şey göndermez.
+
+Kurulum istemiyorsanız:
+[taşınabilir sürüm](https://github.com/SCgrS/udf-resimcisi/releases/latest/download/UDF-Resimcisi-tasinabilir.exe)
+(indir, çift tıkla, çalışır) ·
+[MSI](https://github.com/SCgrS/udf-resimcisi/releases/latest/download/UDF-Resimcisi-x64.msi)
+(kurumsal dağıtım için) ·
+[tüm sürümler](https://github.com/SCgrS/udf-resimcisi/releases)
+
+Windows 10/11 x64. Kip A'nın (panoya kopyalama) çalışması için UYAP Doküman Editörü'nün kurulu
+olması gerekir; belge üretimi ve Kip B UDE olmadan da çalışır.
+
 ## Sorun ve ölçüm
 
 UDE resmi *dosyaya yazarken* kalite kaybetmiyor; **resmi belgeye alırken bitmap'i yeniden
@@ -74,16 +94,6 @@ alır: dosya boyutu pratikte kaynak görselin boyutuna çok yakın çıkar.
 
 Kabaca ölçek: A4 kullanılabilir genişlik 7,28 inç → 300 DPI ≈ 2200 px uzun kenar. UDE'nin kendi
 hâli ≈ 72 DPI.
-
-## Kurulum
-
-`Releases` sayfasındaki `.msi` veya `.exe` kurulum dosyasını indirin.
-
-Kod imzalama sertifikası olmadığı için Windows SmartScreen bir uyarı gösterebilir:
-**"Daha fazla bilgi" → "Yine de çalıştır"**.
-
-Kip A'nın çalışması için UYAP Doküman Editörü'nün kurulu olması gerekir. Kip B ve belge üretimi
-UDE olmadan da çalışır.
 
 ## Kaynaktan derleme
 
