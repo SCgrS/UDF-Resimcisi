@@ -16,7 +16,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_notification::init())
         .manage(commands::Oturum::default())
         .invoke_handler(tauri::generate_handler![
             commands::ayarlari_getir,
@@ -26,10 +25,13 @@ pub fn run() {
             commands::resmi_cikar,
             commands::listeyi_temizle,
             commands::liste_getir,
-            commands::olculeri_hesapla,
+            commands::belge_boyutu,
             commands::udfde_ac,
-            commands::panoya_kopyala,
             commands::klasorde_goster,
+            commands::ude_kurulu_mu,
+            commands::surum,
+            commands::guncelleme_denetle,
+            commands::guncellemeyi_kur,
         ])
         .run(tauri::generate_context!())
         .expect("UDF Resimcisi başlatılamadı");

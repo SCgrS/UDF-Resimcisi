@@ -40,7 +40,8 @@ pub enum Sizing {
 
 #[derive(Debug, Clone)]
 pub struct BuildOptions {
-    /// Her resim ayrı sayfada (aralara `<page-break>` konur).
+    /// Açıkken her resim ayrı sayfada (aralara `<page-break>` konur).
+    /// Kapalıyken resimler arasına boş bir paragraf — yani bir "enter" — konur.
     pub separate_pages: bool,
     pub sizing: Sizing,
     pub page: PageFormat,
@@ -49,7 +50,7 @@ pub struct BuildOptions {
 impl Default for BuildOptions {
     fn default() -> Self {
         Self {
-            separate_pages: true,
+            separate_pages: false,
             sizing: Sizing::FitPage,
             page: PageFormat::default(),
         }
@@ -94,8 +95,13 @@ pub fn belge_kur(images: &[ImageSpec], opts: &BuildOptions) -> Document {
     let mut body: Vec<Block> = Vec::with_capacity(images.len() * 2);
 
     for (i, img) in images.iter().enumerate() {
-        if i > 0 && opts.separate_pages {
-            body.push(Block::PageBreak);
+        if i > 0 {
+            if opts.separate_pages {
+                body.push(Block::PageBreak);
+            } else {
+                // Ayrı sayfa istenmiyorsa resimler arasına bir "enter" (boş paragraf).
+                body.push(Block::Paragraph(Paragraph::default()));
+            }
         }
         let (w, h) = goruntuleme_boyutu(img.px_w, img.px_h, opts.sizing, &opts.page);
         body.push(Block::Paragraph(Paragraph {
@@ -200,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn ayri_sayfa_kapaliyken_page_break_yok() {
+    fn ayri_sayfa_kapaliyken_page_break_yerine_bos_paragraf() {
         let opts = BuildOptions {
             separate_pages: false,
             ..Default::default()
@@ -209,6 +215,30 @@ mod tests {
         let xml = content_xml(&udf);
         assert!(!xml.contains("<page-break>"), "{xml}");
         assert_eq!(xml.matches("<image ").count(), 2);
+        // Aradaki "enter": resim taşımayan, uzunluğu 2 olan bir boş paragraf.
+        assert_eq!(
+            xml.matches("length=\"2\" family=\"Times New Roman\" size=\"10\"").count(),
+            1,
+            "{xml}"
+        );
+    }
+
+    #[test]
+    fn ayni_resim_iki_kez_eklenirse_ikisi_de_belgeye_girer() {
+        let ayni = ImageSpec {
+            bytes: vec![9, 9, 9, 9],
+            px_w: 800,
+            px_h: 600,
+        };
+        let doc = belge_kur(&[ayni.clone(), ayni.clone()], &BuildOptions::default());
+        let resim_sayisi = doc
+            .body
+            .iter()
+            .filter(|b| {
+                matches!(b, Block::Paragraph(p) if p.runs.iter().any(|r| matches!(r, Run::Image(_))))
+            })
+            .count();
+        assert_eq!(resim_sayisi, 2, "aynı resim iki kez eklenmişse ikisi de yer almalı");
     }
 
     #[test]

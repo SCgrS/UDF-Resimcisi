@@ -115,33 +115,6 @@ fn png_kodla(img: &DynamicImage) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-/// 300 DPI'lık A4 genişliğine (≈2200 px uzun kenar) küçültür. Yalnızca kullanıcı
-/// 10 MB uyarısında "küçült" dediğinde çağrılır; varsayılan akışta asla çalışmaz.
-pub const HEDEF_UZUN_KENAR_300DPI: u32 = 2200;
-
-pub fn kucult(spec: &ImageSpec, hedef_uzun_kenar: u32) -> Result<ImageSpec> {
-    let uzun = spec.px_w.max(spec.px_h);
-    if uzun <= hedef_uzun_kenar {
-        return Ok(spec.clone());
-    }
-    let img = image::load_from_memory(&spec.bytes).context("Küçültme için resim çözülemedi")?;
-    let k = hedef_uzun_kenar as f64 / uzun as f64;
-    let nw = ((spec.px_w as f64 * k).round() as u32).max(1);
-    let nh = ((spec.px_h as f64 * k).round() as u32).max(1);
-    let kucuk = img.resize_exact(nw, nh, image::imageops::FilterType::Lanczos3);
-
-    // Küçültülmüş sürümde JPEG çok daha küçük dosya verir; UDE JPEG'i kabul ediyor (§6.4).
-    let mut buf = Vec::new();
-    let mut enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, 88);
-    enc.encode_image(&kucuk.to_rgb8())
-        .context("JPEG kodlanamadı")?;
-
-    Ok(ImageSpec {
-        bytes: buf,
-        px_w: nw,
-        px_h: nh,
-    })
-}
 
 /// Panodaki resmi PNG olarak alır (ekran görüntüsünü tek tuşla UDF yapmak için).
 pub fn panodan() -> Result<YuklenenResim> {
@@ -202,36 +175,6 @@ mod tests {
     fn resim_olmayan_bayt_reddedilir() {
         let hata = baytlardan(b"bu bir resim degil".to_vec()).unwrap_err();
         assert!(hata.to_string().contains("tanınan bir resim değil"), "{hata}");
-    }
-
-    #[test]
-    fn kucultme_uzun_kenari_hedefe_indirir() {
-        let img = DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
-            3000,
-            2000,
-            image::Rgb([10, 20, 30]),
-        ));
-        let spec = ImageSpec {
-            bytes: png_kodla(&img).unwrap(),
-            px_w: 3000,
-            px_h: 2000,
-        };
-        let k = kucult(&spec, 2200).unwrap();
-        assert_eq!(k.px_w, 2200);
-        assert_eq!(k.px_h, 1467);
-        assert!(k.bytes.len() < spec.bytes.len());
-    }
-
-    #[test]
-    fn zaten_kucukse_dokunulmaz() {
-        let png = ornek_png();
-        let spec = ImageSpec {
-            bytes: png.clone(),
-            px_w: 4,
-            px_h: 3,
-        };
-        let k = kucult(&spec, 2200).unwrap();
-        assert_eq!(k.bytes, png);
     }
 
     /// Verilen JPEG'in başına `Orientation` taşıyan bir EXIF (APP1) bölümü ekler.

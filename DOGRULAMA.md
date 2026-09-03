@@ -108,6 +108,25 @@ Doğru pencereyi bulmak için başlıktaki tam yolla eşleştirmek denendi ve **
 (`udfres-<yıl><ay><gün>-<saat><dakika><saniye>-<ms>.udf`) ve eşleştirme dosya adı üzerinden
 yapılıyor. Ad benzersiz olduğu için kullanıcının açık olan kendi belgesiyle karışma riski de yok.
 
+## 1.2 sürümünde kaldırılanlar
+
+Panoya arka planda kopyalama özelliği (1.1) **tamamen kaldırıldı**: `ude.rs` yalnızca "belgeyi
+aç" ve "UDE kurulu mu" işlevlerini tutuyor; pencere arama, saydamlaştırma, `SendInput`, pano
+sıra numarası denetimi ve ilgili tüm kod silindi. Uygulama artık **UDE kurulu olmadan da**
+çalışıyor: belge her hâlükârda üretilip diske yazılıyor, UDE varsa ayrıca açılıyor.
+
+Yine kaldırılanlar: 9 MB uyarısı ve 300 DPI küçültme, görüntüleme boyutu seçenekleri
+(artık her zaman tam çözünürlük + sayfaya sığdırma), kip seçimi ve otomasyon onay kutusu.
+
+1.2'de doğrulananlar:
+
+| Senaryo | Sonuç |
+|---|---|
+| Aynı resim iki kez ekleme | İkisi de listeye ve belgeye sırayla giriyor (birim test + uygulamada ölçüldü) |
+| "Her resim ayrı sayfada" kapalı (yeni varsayılan) | Belgede `<page-break>` yok; resimler arasında tek bir boş paragraf ("enter") var: `startOffset="2" length="2"`. Resim offset'leri 0 ve 4. |
+| Eski ayar dosyası | 1.x'ten gelen `ayri_sayfa: true` değeri, ayar sürümü taşımasıyla yeni varsayılana (kapalı) çekiliyor; kullanıcının 1.2'de kendi yaptığı seçim korunuyor |
+| Güncelleme denetimi | Depo gizli olduğu için GitHub API 404 dönüyor ve arayüz bunu dürüstçe söylüyor ("depo gizliyse sürüm bilgisi dışarıya kapalıdır"). Depo herkese açıldığında çalışır. |
+
 ## Biçim hakkında ek bulgular (kodda karşılığı var)
 
 1. **UDE base64'ü MIME satır sonlarıyla yazar** (76 karakterde bir `\n`). Üretirken satırsız

@@ -8,8 +8,16 @@
 </head>
 <body>
   <header>
-    <h1>UDF Resimcisi</h1>
-    <p class="alt">Resmi tam çözünürlükle UDF'ye koyar — UYAP editörünün küçültmesine uğramadan.</p>
+    <div>
+      <h1>UDF Resimcisi</h1>
+      <p class="alt">Resmi tam çözünürlükle UDF'ye koyar — UYAP editörünün küçültmesine uğramadan.</p>
+    </div>
+    <button id="ayarlar-ac" type="button" class="carkli" title="Ayarlar" aria-label="Ayarlar">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+      </svg>
+    </button>
   </header>
 
   <main>
@@ -37,25 +45,39 @@
       <ul id="liste" class="liste"></ul>
     </section>
 
-    <section class="secenekler">
-      <h2>Seçenekler</h2>
+    <div id="ayri-sayfa-satiri" class="orta-satir" hidden>
+      <label class="onay">
+        <input type="checkbox" id="ayri-sayfa" />
+        <span>Her resim ayrı sayfada</span>
+      </label>
+    </div>
 
-      <div class="satir">
-        <span class="etiket">Görüntüleme boyutu</span>
-        <div class="secim-grubu">
-          <label class="secim"><input type="radio" name="boyut" value="sigdir" checked /><span>Sayfaya sığdır</span></label>
-          <label class="secim"><input type="radio" name="boyut" value="yuzde100" /><span>%100 (1 px = 1 pt)</span></label>
-          <label class="secim"><input type="radio" name="boyut" value="cm" /><span>Genişlik</span></label>
-          <input type="number" id="boyut-cm" value="15" min="1" max="60" step="0.5" disabled />
-          <span class="alt">cm</span>
-        </div>
+    <div class="eylem">
+      <button id="uret" type="button" class="birincil" disabled>UDF'de aç</button>
+      <p id="boyut" class="boyut"></p>
+      <p id="durum" class="durum" role="status" aria-live="polite"></p>
+    </div>
+  </main>
+
+  <footer>
+    <p class="alt">Tamamen yerel çalışır. UYAP/HAVELSAN ile ilişkili değildir.</p>
+  </footer>
+
+  <!-- Ayarlar penceresi -->
+  <div id="ayarlar-perde" class="perde" hidden>
+    <section class="ayarlar-kutu" role="dialog" aria-modal="true" aria-label="Ayarlar">
+      <div class="bolum-basligi">
+        <h2>Ayarlar</h2>
+        <button id="ayarlar-kapat" type="button" class="baglanti">Kapat</button>
       </div>
 
       <div class="satir">
-        <label class="onay">
-          <input type="checkbox" id="ayri-sayfa" checked />
-          <span>Birden fazla resmi birlikte işlerken her resim ayrı sayfada</span>
-        </label>
+        <span class="etiket">Tema</span>
+        <div class="secim-grubu">
+          <label class="secim"><input type="radio" name="tema" value="sistem" checked /><span>Sistem</span></label>
+          <label class="secim"><input type="radio" name="tema" value="acik" /><span>Açık</span></label>
+          <label class="secim"><input type="radio" name="tema" value="koyu" /><span>Koyu</span></label>
+        </div>
       </div>
 
       <div class="satir">
@@ -67,46 +89,25 @@
       </div>
 
       <div class="satir">
-        <label class="onay">
-          <input type="checkbox" id="uyari-9mb" checked />
-          <span>Belge 9 MB'ı aşarsa uyar (UYAP sınırı ≈10 MB)</span>
-        </label>
+        <span class="etiket">Güncelleme</span>
+        <div class="secim-grubu">
+          <button id="guncelleme-denetle" type="button" class="ikincil">Güncellemeleri denetle</button>
+          <button id="guncelleme-kur" type="button" hidden>İndir ve kur</button>
+          <span id="guncelleme-durum" class="alt"></span>
+        </div>
       </div>
+
+      <p class="bilgi-kutu">
+        UYAP'a yüklenebilen evrak boyutu en fazla <strong>10 MB</strong>'tır. Belgeniz bunu aşarsa
+        UYAP kabul etmez.
+      </p>
+
+      <p class="alt">
+        Sürüm <span id="surum">—</span> · Geliştirici:
+        <a href="#" id="gelistirici">x.com/CgrShn</a>
+      </p>
     </section>
-
-    <section id="kilavuz" class="kilavuz" hidden>
-      <h3 id="kilavuz-baslik">Bilgi</h3>
-      <p id="kilavuz-metin"></p>
-      <div class="dugmeler">
-        <button id="kilavuz-klasor" type="button" class="ikincil">Klasörü aç</button>
-        <button id="kilavuz-kapat" type="button" class="baglanti">Kapat</button>
-      </div>
-    </section>
-
-    <section id="buyuk-uyari" class="uyari" hidden>
-      <h3>Belge büyük</h3>
-      <p id="buyuk-metin"></p>
-      <div class="dugmeler">
-        <button id="kucult-uret" type="button">300 DPI'lık küçük sürümle tekrar dene</button>
-        <button id="buyuk-kapat" type="button" class="baglanti">Böyle kalsın</button>
-      </div>
-    </section>
-
-    <!-- Alta yapışık: birden fazla resim varken toplu işlemler, her zaman durum satırı. -->
-    <div class="eylem">
-      <div id="toplu" class="dugmeler" hidden>
-        <button id="hepsini-kopyala" type="button" class="birincil">Hepsini kopyala</button>
-        <button id="hepsini-ac" type="button" class="ikincil">Hepsini UDF'de aç</button>
-      </div>
-      <p id="durum" class="durum" role="status" aria-live="polite"></p>
-    </div>
-  </main>
-
-  <footer>
-    <p class="alt">
-      Tamamen yerel çalışır; hiçbir veri gönderilmez. UYAP/HAVELSAN ile ilişkili değildir.
-    </p>
-  </footer>
+  </div>
 
   <script src="main.js"></script>
 </body>

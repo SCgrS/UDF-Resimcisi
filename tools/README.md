@@ -31,20 +31,11 @@ sıkışmayan gürültü PNG'si). `IconGen.java` uygulama simgesinin kaynağın�
 
 ## `uiauto.ps1` / `capture.ps1`
 
-`ude.rs`'teki Windows otomasyonunun prototipleri; pencere bulma, `AttachThreadInput` ile öne
-getirme, `SendInput` ile tıklama/tuş gönderme ve `GetClipboardSequenceNumber` ile pano
-doğrulaması burada önce denendi, sonra Rust'a taşındı.
+Arayüzü ve UDE'yi denetlemek için kullanılan pencere yardımcıları: pencere bulma, öne getirme,
+tıklama/tuş gönderme, pencere taşıma. Uygulamanın kendisi bunları kullanmaz; yalnızca elle
+doğrulama turlarında işe yarar. (1.1'de var olan arka planda pano kopyalama özelliği 1.2'de
+kaldırıldı; bu betiklerdeki pano ve saydamlaştırma yardımcıları o dönemden kalmadır.)
 
 `capture.ps1 -Print` arka plandaki pencereyi `PrintWindow` ile yakalar — üstte başka pencere
 varken bile arayüzü denetlemeye yarar.
 
-## `gizle-dene.ps1`
-
-1.1'deki **görünmeden kopyalama**nın deney dosyası. UDE'yi açar, hem açılış görselini
-(`JavaSplash`) hem belge penceresini (`SunAwtFrame`) yerinde saydamlaştırır, `Ctrl+A`/`Ctrl+C`
-gönderir, panonun değiştiğini doğrular ve pencereyi kapatır. Zaman damgalarıyla birlikte
-çalıştığı için "kaç ms'de ne oluyor" ölçümü buradan çıktı.
-
-Önemli: pencereyi **taşımak** yerine saydamlaştırmanın sebebi, taşımanın UDE'nin
-`~/.uki/tercihler.xml` dosyasındaki `win_posx`/`win_posy` değerini kalıcı bozması. Ayrıntı
-`DOGRULAMA.md` içinde.

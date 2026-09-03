@@ -1,18 +1,15 @@
-//! Arayüzün çağırdığı uçlar. Ağır iş (resim çözme, UDE bekleme) bloklayan iş parçacığında
-//! çalışır; pencere donmaz.
+//! Arayüzün çağırdığı uçlar. Ağır iş (resim çözme, belge üretimi, ağ) bloklayan iş
+//! parçacığında çalışır; pencere donmaz.
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tauri::State;
 
 use crate::image_io::{self, YuklenenResim};
-use crate::settings::{self, Ayarlar, BoyutTercihi};
+use crate::settings::{self, Ayarlar};
 use crate::udf::{self, BuildOptions, ImageSpec, Sizing, PT_PER_CM};
-
-/// 10 MB UYAP sınırının altında bıraktığımız uyarı eşiği.
-pub const UYARI_ESIGI: u64 = 9 * 1024 * 1024;
 
 /// Oturum boyunca yüklü resimler. Arayüz bunlara indeksle atıf yapar; megabaytlar
 /// arayüz katmanına hiç geçmez.
@@ -36,38 +33,41 @@ pub struct ResimBilgi {
     pub orijinal_korundu: bool,
     pub dondurul: bool,
     pub bayt: usize,
+    pub genislik_cm: f64,
+    pub yukseklik_cm: f64,
     /// Küçük önizleme (data URI). Yalnızca arayüzde göstermek için üretilir; belgeye girmez.
     pub onizleme: String,
 }
 
 #[derive(Debug, Serialize)]
-pub struct OlcuBilgi {
-    pub indeks: usize,
-    pub genislik_cm: f64,
-    pub yukseklik_cm: f64,
-    pub sayfayi_asiyor: bool,
+pub struct YuklemeSonucu {
+    pub resimler: Vec<ResimBilgi>,
+    pub hatalar: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct UretimSonucu {
     pub yol: String,
     pub boyut_bayt: u64,
-    /// 9 MB eşiği aşıldıysa arayüz küçültme teklifi gösterir.
-    pub buyuk: bool,
-}
-
-#[derive(Debug, Serialize)]
-pub struct KipSonucu {
-    /// "panoda" | "pano-degismedi" | "pencere-yok"
-    pub durum: String,
-    pub mesaj: String,
-    pub boyut_bayt: u64,
-    /// Panoya giden içerik 9 MB'ı aşıyorsa arayüz küçültme teklifi gösterir.
-    pub buyuk: bool,
+    /// UDE kurulu değilse belge yine kaydedilir, sadece açılamaz.
+    pub ude_acildi: bool,
 }
 
 fn hata<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
+}
+
+/// Görüntüleme boyutu artık seçenek değil: resim tam çözünürlükle gömülür, sayfaya sığacak
+/// şekilde yerleştirilir. (Bitmap'e dokunulmaz; yalnızca `width`/`height` punto değerleri
+/// sayfaya göre hesaplanır.)
+const BOYUT: Sizing = Sizing::FitPage;
+
+fn secenekler(ayri_sayfa: bool) -> BuildOptions {
+    BuildOptions {
+        separate_pages: ayri_sayfa,
+        sizing: BOYUT,
+        page: udf::model::PageFormat::default(),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -84,17 +84,28 @@ pub fn ayarlari_kaydet(ayarlar: Ayarlar) -> Result<(), String> {
     settings::kaydet(&ayarlar).map_err(hata)
 }
 
-// ---------------------------------------------------------------------------
-// Resim yükleme
-// ---------------------------------------------------------------------------
-
-/// Yükleme sonucu: okunabilenler ve okunamayanlar birlikte döner — okunamayan bir dosya
-/// sessizce yutulmaz, arayüz adını söyler.
-#[derive(Debug, Serialize)]
-pub struct YuklemeSonucu {
-    pub resimler: Vec<ResimBilgi>,
-    pub hatalar: Vec<String>,
+/// Uygulamanın sürümü (ayarlar penceresinde gösterilir).
+#[tauri::command]
+pub fn surum() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
 }
+
+/// Arayüz, UDE yoksa "kaydedildi ama açılamadı" beklentisini önceden kurabilsin diye.
+#[tauri::command]
+pub fn ude_kurulu_mu() -> bool {
+    #[cfg(windows)]
+    {
+        crate::ude::kurulu_mu()
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Resim listesi
+// ---------------------------------------------------------------------------
 
 #[tauri::command]
 pub async fn resimleri_yukle(
@@ -121,6 +132,7 @@ pub async fn resimleri_yukle(
 
     let mut hatalar = Vec::new();
     {
+        // Aynı dosya birden çok kez eklenebilir: liste sıraya göre büyür, tekilleştirme yok.
         let mut liste = oturum.resimler.lock().map_err(hata)?;
         for k in yuklenenler {
             match k {
@@ -176,25 +188,30 @@ pub fn liste_getir(oturum: State<'_, Oturum>) -> Result<Vec<ResimBilgi>, String>
 
 fn liste_bilgisi(oturum: &State<'_, Oturum>) -> Result<Vec<ResimBilgi>, String> {
     let liste = oturum.resimler.lock().map_err(hata)?;
+    let page = udf::model::PageFormat::default();
     Ok(liste
         .iter()
         .enumerate()
-        .map(|(i, k)| ResimBilgi {
-            indeks: i,
-            ad: k.ad.clone(),
-            px_w: k.resim.spec.px_w,
-            px_h: k.resim.spec.px_h,
-            bicim: k.resim.bicim.clone(),
-            orijinal_korundu: k.resim.orijinal_korundu,
-            dondurul: k.resim.dondurul,
-            bayt: k.resim.spec.bytes.len(),
-            onizleme: onizleme_uret(&k.resim.spec),
+        .map(|(i, k)| {
+            let (w, h) = udf::goruntuleme_boyutu(k.resim.spec.px_w, k.resim.spec.px_h, BOYUT, &page);
+            ResimBilgi {
+                indeks: i,
+                ad: k.ad.clone(),
+                px_w: k.resim.spec.px_w,
+                px_h: k.resim.spec.px_h,
+                bicim: k.resim.bicim.clone(),
+                orijinal_korundu: k.resim.orijinal_korundu,
+                dondurul: k.resim.dondurul,
+                bayt: k.resim.spec.bytes.len(),
+                genislik_cm: w / PT_PER_CM,
+                yukseklik_cm: h / PT_PER_CM,
+                onizleme: onizleme_uret(&k.resim.spec),
+            }
         })
         .collect())
 }
 
-/// Arayüz için küçük önizleme üretir. Başarısız olursa boş dize döner (önizleme yoksa
-/// kart yine de sayılarla gösterilir).
+/// Arayüz için küçük önizleme üretir. Başarısız olursa boş dize döner.
 fn onizleme_uret(spec: &ImageSpec) -> String {
     use base64::engine::general_purpose::STANDARD as B64;
     use base64::Engine;
@@ -213,43 +230,7 @@ fn onizleme_uret(spec: &ImageSpec) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Ölçü önizlemesi
-// ---------------------------------------------------------------------------
-
-fn sizing_of(b: BoyutTercihi) -> Sizing {
-    match b {
-        BoyutTercihi::SayfayaSigdir => Sizing::FitPage,
-        BoyutTercihi::YuzdeYuz => Sizing::Actual,
-        BoyutTercihi::GenislikCm(cm) => Sizing::WidthCm(cm),
-    }
-}
-
-#[tauri::command]
-pub fn olculeri_hesapla(
-    boyut: BoyutTercihi,
-    oturum: State<'_, Oturum>,
-) -> Result<Vec<OlcuBilgi>, String> {
-    let liste = oturum.resimler.lock().map_err(hata)?;
-    let page = udf::model::PageFormat::default();
-    Ok(liste
-        .iter()
-        .enumerate()
-        .map(|(i, k)| {
-            let (w, h) =
-                udf::goruntuleme_boyutu(k.resim.spec.px_w, k.resim.spec.px_h, sizing_of(boyut), &page);
-            OlcuBilgi {
-                indeks: i,
-                genislik_cm: w / PT_PER_CM,
-                yukseklik_cm: h / PT_PER_CM,
-                sayfayi_asiyor: w > page.usable_width() + 0.01
-                    || h > page.usable_height() + 0.01,
-            }
-        })
-        .collect())
-}
-
-// ---------------------------------------------------------------------------
-// UDF üretimi
+// Belge üretimi
 // ---------------------------------------------------------------------------
 
 /// Çakışma varsa " (2)", " (3)" … ekler.
@@ -267,14 +248,12 @@ pub fn benzersiz_yol(klasor: &Path, govde: &str) -> PathBuf {
     klasor.join(format!("{govde}-{}.udf", chrono::Local::now().format("%H%M%S")))
 }
 
-/// Dosya adı gövdesi: tek resimde kaynak adı, çoklu resimde ilk dosyanın adı;
-/// pano kaynaklıysa tarih damgası.
-fn govde_sec_dilim(secili: &[&Kayit]) -> String {
+fn govde_sec(liste: &[Kayit]) -> String {
     // Panodan gelen resmin kaynak adı yok: tarih damgası kullan.
-    if secili[0].ad.starts_with("pano-") {
+    if liste[0].ad.starts_with("pano-") {
         return format!("resimler-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
     }
-    Path::new(&secili[0].ad)
+    Path::new(&liste[0].ad)
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "resim".to_string())
@@ -288,161 +267,61 @@ fn temiz_dosya_adi(s: &str) -> String {
         .to_string()
 }
 
-#[derive(Debug, Deserialize)]
-pub struct UretimIstegi {
-    pub ayri_sayfa: bool,
-    pub boyut: BoyutTercihi,
-    pub cikti_klasoru: String,
-    /// true ise resimler 300 DPI'ya (≈2200 px uzun kenar) küçültülerek gömülür.
-    pub kucult: bool,
-}
-
-/// Seçilen resimlerden `.udf` baytlarını ve dosya adı gövdesini üretir.
-fn belge_uret(
-    indeksler: &[usize],
-    istek: &UretimIstegi,
-    oturum: &State<'_, Oturum>,
-) -> Result<(Vec<u8>, String), String> {
+fn belge_uret(ayri_sayfa: bool, oturum: &State<'_, Oturum>) -> Result<(Vec<u8>, String), String> {
     let (specler, govde) = {
         let liste = oturum.resimler.lock().map_err(hata)?;
         if liste.is_empty() {
             return Err("Önce bir resim ekleyin.".to_string());
         }
-        let secili: Vec<&Kayit> = if indeksler.is_empty() {
-            liste.iter().collect()
-        } else {
-            indeksler
-                .iter()
-                .filter_map(|&i| liste.get(i))
-                .collect()
-        };
-        if secili.is_empty() {
-            return Err("Seçilen resim bulunamadı.".to_string());
-        }
         (
-            secili.iter().map(|k| k.resim.spec.clone()).collect::<Vec<_>>(),
-            govde_sec_dilim(&secili),
+            liste.iter().map(|k| k.resim.spec.clone()).collect::<Vec<_>>(),
+            govde_sec(&liste),
         )
     };
-
-    let specler = if istek.kucult {
-        specler
-            .iter()
-            .map(|s| image_io::kucult(s, image_io::HEDEF_UZUN_KENAR_300DPI))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(hata)?
-    } else {
-        specler
-    };
-
-    let opts = BuildOptions {
-        separate_pages: istek.ayri_sayfa,
-        sizing: sizing_of(istek.boyut),
-        page: udf::model::PageFormat::default(),
-    };
-    let bytes = udf::build_udf(&specler, &opts).map_err(hata)?;
+    let bytes = udf::build_udf(&specler, &secenekler(ayri_sayfa)).map_err(hata)?;
     Ok((bytes, temiz_dosya_adi(&govde)))
 }
 
-/// **UDF'de aç**: belgeyi çıktı klasörüne yazar ve UDE'de görünür şekilde açar.
+/// Listedeki resimlerden üretilecek `.udf` dosyasının boyutu (bayt).
+/// Gerçekten belge kurup ölçer — tahmin değil, kesin değer.
+#[tauri::command]
+pub async fn belge_boyutu(ayri_sayfa: bool, oturum: State<'_, Oturum>) -> Result<u64, String> {
+    let bos = oturum.resimler.lock().map_err(hata)?.is_empty();
+    if bos {
+        return Ok(0);
+    }
+    let (bytes, _) = belge_uret(ayri_sayfa, &oturum)?;
+    Ok(bytes.len() as u64)
+}
+
+/// Belgeyi kaydetme klasörüne yazar ve (UDE kuruluysa) açar.
 #[tauri::command]
 pub async fn udfde_ac(
-    indeksler: Vec<usize>,
-    istek: UretimIstegi,
+    ayri_sayfa: bool,
+    cikti_klasoru: String,
     oturum: State<'_, Oturum>,
 ) -> Result<UretimSonucu, String> {
-    let (bytes, govde) = belge_uret(&indeksler, &istek, &oturum)?;
-    let klasor = PathBuf::from(&istek.cikti_klasoru);
+    let (bytes, govde) = belge_uret(ayri_sayfa, &oturum)?;
+    let klasor = PathBuf::from(&cikti_klasoru);
 
     tauri::async_runtime::spawn_blocking(move || -> Result<UretimSonucu, String> {
         std::fs::create_dir_all(&klasor)
-            .map_err(|e| format!("Çıktı klasörü oluşturulamadı ({}): {e}", klasor.display()))?;
+            .map_err(|e| format!("Kaydetme klasörü oluşturulamadı ({}): {e}", klasor.display()))?;
         let yol = benzersiz_yol(&klasor, &govde);
         std::fs::write(&yol, &bytes)
             .map_err(|e| format!("Dosya yazılamadı ({}): {e}", yol.display()))?;
 
+        // UDE yoksa belge yine üretilmiş olur; yalnızca açılamaz.
         #[cfg(windows)]
-        if let Err(e) = crate::ude::belgeyi_ac(&yol) {
-            crate::ude::klasorde_goster(&yol);
-            return Err(format!("{e}\nDosya: {}", yol.display()));
-        }
+        let acildi = crate::ude::belgeyi_ac(&yol).is_ok();
+        #[cfg(not(windows))]
+        let acildi = false;
 
-        let boyut = bytes.len() as u64;
         Ok(UretimSonucu {
             yol: yol.to_string_lossy().to_string(),
-            boyut_bayt: boyut,
-            buyuk: boyut > UYARI_ESIGI,
+            boyut_bayt: bytes.len() as u64,
+            ude_acildi: acildi,
         })
-    })
-    .await
-    .map_err(hata)?
-}
-
-/// **Panoya kopyala**: belgeyi geçici klasöre yazar, UDE'de *görünmeden* açıp içeriğini panoya
-/// alır ve pencereyi kapatır. Kullanıcı hiçbir pencere görmez.
-#[tauri::command]
-pub async fn panoya_kopyala(
-    indeksler: Vec<usize>,
-    istek: UretimIstegi,
-    oturum: State<'_, Oturum>,
-) -> Result<KipSonucu, String> {
-    let (bytes, _govde) = belge_uret(&indeksler, &istek, &oturum)?;
-    let boyut = bytes.len() as u64;
-
-    tauri::async_runtime::spawn_blocking(move || -> Result<KipSonucu, String> {
-        // Geçici klasör: kopyalama için üretilen belge kullanıcının çıktı klasörünü kirletmesin.
-        let klasor = std::env::temp_dir().join("UDF Resimcisi");
-        std::fs::create_dir_all(&klasor)
-            .map_err(|e| format!("Geçici klasör oluşturulamadı: {e}"))?;
-        // Ad **benzersiz** olmalı: UDE penceresi bu adla bulunuyor ve kullanıcının açık olan
-        // kendi belgesiyle karışması hâlinde onun penceresinde işlem yapılırdı.
-        let yol = klasor.join(format!(
-            "udfres-{}.udf",
-            chrono::Local::now().format("%Y%m%d-%H%M%S-%3f")
-        ));
-        std::fs::write(&yol, &bytes)
-            .map_err(|e| format!("Geçici dosya yazılamadı: {e}"))?;
-
-        #[cfg(windows)]
-        let sonuc = {
-            let s = crate::ude::kopyala_gorunmeden(&yol);
-            let _ = std::fs::remove_file(&yol);
-            match s {
-                crate::ude::KopyalamaSonucu::Panoda => KipSonucu {
-                    durum: "panoda".into(),
-                    mesaj: "Resim panoda — dilekçenizde Ctrl+V yapın.".into(),
-                    boyut_bayt: boyut,
-                    buyuk: boyut > UYARI_ESIGI,
-                },
-                crate::ude::KopyalamaSonucu::PanoDegismedi => KipSonucu {
-                    durum: "pano-degismedi".into(),
-                    mesaj: "Kopyalama doğrulanamadı — pano değişmedi. \"UDF'de aç\" ile açıp \
-                            Ctrl+A → Ctrl+C yapabilirsiniz."
-                        .into(),
-                    boyut_bayt: boyut,
-                    buyuk: false,
-                },
-                crate::ude::KopyalamaSonucu::PencereYok => KipSonucu {
-                    durum: "pencere-yok".into(),
-                    mesaj: "UYAP Doküman Editörü 30 sn içinde yanıt vermedi. Kurulu olduğundan \
-                            emin olun; \"UDF'de aç\" seçeneği UDE olmadan da dosyayı üretir."
-                        .into(),
-                    boyut_bayt: boyut,
-                    buyuk: false,
-                },
-            }
-        };
-        #[cfg(not(windows))]
-        let sonuc = {
-            let _ = yol;
-            KipSonucu {
-                durum: "pencere-yok".into(),
-                mesaj: "Panoya kopyalama yalnızca Windows'ta çalışır.".into(),
-                boyut_bayt: boyut,
-                buyuk: false,
-            }
-        };
-        Ok(sonuc)
     })
     .await
     .map_err(hata)?
@@ -454,6 +333,154 @@ pub fn klasorde_goster(yol: String) {
     crate::ude::klasorde_goster(Path::new(&yol));
     #[cfg(not(windows))]
     let _ = yol;
+}
+
+// ---------------------------------------------------------------------------
+// Güncelleme denetimi
+// ---------------------------------------------------------------------------
+
+/// Sürüm bilgisinin çekildiği adres. Depo herkese açık değilse bu adres 404 döner ve
+/// denetim dürüstçe "bilgi alınamadı" der.
+const SURUM_ADRESI: &str = "https://api.github.com/repos/SCgrS/udf-resimcisi/releases/latest";
+/// Kurulum dosyasının sürümden bağımsız adı (bkz. depo README).
+const KURULUM_DOSYASI: &str = "UDF-Resimcisi-kurulum.exe";
+
+#[derive(Debug, Serialize)]
+pub struct GuncellemeSonucu {
+    /// "guncel" | "yeni-surum-var" | "ulasilamadi"
+    pub durum: String,
+    pub mesaj: String,
+    pub bu_surum: String,
+    pub yeni_surum: String,
+    /// Kurulum dosyasının indirme adresi (yalnız "yeni-surum-var" durumunda dolu).
+    pub indirme_adresi: String,
+}
+
+fn surum_parcala(s: &str) -> (u32, u32, u32) {
+    let t = s.trim_start_matches('v');
+    let mut p = t.split('.').map(|x| x.parse::<u32>().unwrap_or(0));
+    (
+        p.next().unwrap_or(0),
+        p.next().unwrap_or(0),
+        p.next().unwrap_or(0),
+    )
+}
+
+#[tauri::command]
+pub async fn guncelleme_denetle() -> Result<GuncellemeSonucu, String> {
+    let bu = env!("CARGO_PKG_VERSION").to_string();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        // Hata türü büyük olduğu için hemen metne çevriliyor (clippy: result_large_err).
+        let yanit: Result<String, String> = ureq::get(SURUM_ADRESI)
+            .set("User-Agent", "UDF-Resimcisi")
+            .set("Accept", "application/vnd.github+json")
+            .timeout(std::time::Duration::from_secs(15))
+            .call()
+            .map_err(|e| e.to_string())
+            .and_then(|r| r.into_string().map_err(|e| e.to_string()));
+
+        let govde = match yanit {
+            Ok(s) => s,
+            Err(e) => {
+                return GuncellemeSonucu {
+                    durum: "ulasilamadi".into(),
+                    mesaj: format!(
+                        "Sürüm bilgisi alınamadı. İnternet bağlantınızı denetleyin; \
+                         depo gizliyse sürüm bilgisi dışarıya kapalıdır. ({e})"
+                    ),
+                    bu_surum: bu.clone(),
+                    yeni_surum: String::new(),
+                    indirme_adresi: String::new(),
+                }
+            }
+        };
+
+        let json: serde_json::Value = match serde_json::from_str(&govde) {
+            Ok(v) => v,
+            Err(e) => {
+                return GuncellemeSonucu {
+                    durum: "ulasilamadi".into(),
+                    mesaj: format!("Sürüm bilgisi okunamadı: {e}"),
+                    bu_surum: bu.clone(),
+                    yeni_surum: String::new(),
+                    indirme_adresi: String::new(),
+                }
+            }
+        };
+
+        let etiket = json["tag_name"].as_str().unwrap_or_default().to_string();
+        let adres = json["assets"]
+            .as_array()
+            .and_then(|a| {
+                a.iter()
+                    .find(|x| x["name"].as_str() == Some(KURULUM_DOSYASI))
+                    .and_then(|x| x["browser_download_url"].as_str())
+            })
+            .unwrap_or_default()
+            .to_string();
+
+        if etiket.is_empty() {
+            return GuncellemeSonucu {
+                durum: "ulasilamadi".into(),
+                mesaj: "Yayımlanmış bir sürüm bulunamadı.".into(),
+                bu_surum: bu.clone(),
+                yeni_surum: String::new(),
+                indirme_adresi: String::new(),
+            };
+        }
+
+        if surum_parcala(&etiket) > surum_parcala(&bu) {
+            GuncellemeSonucu {
+                durum: "yeni-surum-var".into(),
+                mesaj: format!("Yeni sürüm var: {etiket}"),
+                bu_surum: bu.clone(),
+                yeni_surum: etiket,
+                indirme_adresi: adres,
+            }
+        } else {
+            GuncellemeSonucu {
+                durum: "guncel".into(),
+                mesaj: format!("En son sürümü kullanıyorsunuz ({bu})."),
+                bu_surum: bu.clone(),
+                yeni_surum: etiket,
+                indirme_adresi: String::new(),
+            }
+        }
+    })
+    .await
+    .map_err(hata)
+}
+
+/// Kurulum dosyasını indirip çalıştırır. Yalnızca kullanıcı "İndir ve kur" dediğinde çağrılır.
+#[tauri::command]
+pub async fn guncellemeyi_kur(indirme_adresi: String) -> Result<String, String> {
+    if indirme_adresi.is_empty() {
+        return Err("İndirme adresi yok.".to_string());
+    }
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let yanit = ureq::get(&indirme_adresi)
+            .set("User-Agent", "UDF-Resimcisi")
+            .timeout(std::time::Duration::from_secs(120))
+            .call()
+            .map_err(|e| format!("İndirilemedi: {e}"))?;
+
+        let mut veri = Vec::new();
+        std::io::copy(&mut yanit.into_reader(), &mut veri)
+            .map_err(|e| format!("İndirme yarıda kesildi: {e}"))?;
+
+        let klasor = std::env::temp_dir().join("UDF Resimcisi");
+        std::fs::create_dir_all(&klasor).map_err(hata)?;
+        let yol = klasor.join(KURULUM_DOSYASI);
+        std::fs::write(&yol, &veri).map_err(|e| format!("Kaydedilemedi: {e}"))?;
+
+        std::process::Command::new(&yol)
+            .spawn()
+            .map_err(|e| format!("Kurulum başlatılamadı: {e}"))?;
+        Ok(yol.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(hata)?
 }
 
 #[cfg(test)]
@@ -479,7 +506,10 @@ mod tests {
     }
 
     #[test]
-    fn uyari_esigi_10mb_sinirinin_altinda() {
-        const _: () = assert!(UYARI_ESIGI < 10 * 1024 * 1024);
+    fn surum_karsilastirma() {
+        assert!(surum_parcala("v1.2.0") > surum_parcala("1.1.9"));
+        assert!(surum_parcala("v1.1.0") == surum_parcala("1.1.0"));
+        assert!(surum_parcala("v0.9.0") < surum_parcala("1.0.0"));
+        assert_eq!(surum_parcala("bozuk"), (0, 0, 0));
     }
 }

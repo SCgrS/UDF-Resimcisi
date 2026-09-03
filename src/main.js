@@ -4,7 +4,6 @@
 const { invoke } = window.__TAURI__.core;
 const dialog = window.__TAURI__.dialog;
 const opener = window.__TAURI__.opener;
-const bildirim = window.__TAURI__.notification;
 const webview = window.__TAURI__.webview;
 
 const $ = (id) => document.getElementById(id);
@@ -17,31 +16,27 @@ const el = {
   liste: $("liste"),
   sayac: $("sayac"),
   temizle: $("listeyi-temizle"),
+  ayriSayfaSatiri: $("ayri-sayfa-satiri"),
   ayriSayfa: $("ayri-sayfa"),
-  boyutCm: $("boyut-cm"),
+  uret: $("uret"),
+  boyut: $("boyut"),
+  durum: $("durum"),
+  // ayarlar
+  ayarlarAc: $("ayarlar-ac"),
+  ayarlarPerde: $("ayarlar-perde"),
+  ayarlarKapat: $("ayarlar-kapat"),
   ciktiKlasoru: $("cikti-klasoru"),
   klasorSec: $("klasor-sec"),
-  uyari9mb: $("uyari-9mb"),
-  toplu: $("toplu"),
-  hepsiniKopyala: $("hepsini-kopyala"),
-  hepsiniAc: $("hepsini-ac"),
-  durum: $("durum"),
-  kilavuz: $("kilavuz"),
-  kilavuzBaslik: $("kilavuz-baslik"),
-  kilavuzMetin: $("kilavuz-metin"),
-  kilavuzKlasor: $("kilavuz-klasor"),
-  kilavuzKapat: $("kilavuz-kapat"),
-  buyukUyari: $("buyuk-uyari"),
-  buyukMetin: $("buyuk-metin"),
-  kucultUret: $("kucult-uret"),
-  buyukKapat: $("buyuk-kapat"),
+  guncellemeDenetle: $("guncelleme-denetle"),
+  guncellemeKur: $("guncelleme-kur"),
+  guncellemeDurum: $("guncelleme-durum"),
+  surum: $("surum"),
+  gelistirici: $("gelistirici"),
 };
 
 let resimler = [];
 let sonUretilenYol = null;
-let mesgul = false;
-/// Küçültme teklifi kabul edilirse aynı işi tekrarlamak için son isteğin özeti.
-let sonIslem = null;
+let indirmeAdresi = "";
 
 // ---------------------------------------------------------------------------
 // Yardımcılar
@@ -58,28 +53,11 @@ function durum(metin, sinif = "") {
   el.durum.className = `durum ${sinif}`;
 }
 
-function boyutTercihi() {
-  const secili = document.querySelector('input[name="boyut"]:checked').value;
-  if (secili === "cm") {
-    return { tur: "cm", deger: parseFloat(el.boyutCm.value) || 15 };
-  }
-  return { tur: secili };
-}
-
-function istekKur(kucult) {
-  return {
-    ayri_sayfa: el.ayriSayfa.checked,
-    boyut: boyutTercihi(),
-    cikti_klasoru: el.ciktiKlasoru.value,
-    kucult,
-  };
-}
-
 function mesgulYap(evet, metin) {
-  mesgul = evet;
-  document.querySelectorAll("button").forEach((b) => {
-    if (b.dataset.hepDurmasin !== "1") b.disabled = evet;
+  document.querySelectorAll("main button").forEach((b) => {
+    b.disabled = evet;
   });
+  if (!evet) el.uret.disabled = resimler.length === 0;
   if (metin) durum(metin);
 }
 
@@ -87,21 +65,26 @@ function mesgulYap(evet, metin) {
 // Ayarlar
 // ---------------------------------------------------------------------------
 
+function temaUygula(tema) {
+  if (tema === "sistem") document.documentElement.removeAttribute("data-tema");
+  else document.documentElement.setAttribute("data-tema", tema);
+}
+
 async function ayarlariYukle() {
   try {
     const a = await invoke("ayarlari_getir");
     el.ayriSayfa.checked = a.ayri_sayfa;
-    el.uyari9mb.checked = a.uyari_9mb;
     el.ciktiKlasoru.value = a.cikti_klasoru;
-    const tur = a.boyut.tur;
-    document.querySelector(`input[name="boyut"][value="${tur}"]`).checked = true;
-    if (tur === "cm") {
-      el.boyutCm.value = a.boyut.deger;
-      el.boyutCm.disabled = false;
-    }
+    const t = document.querySelector(`input[name="tema"][value="${a.tema}"]`);
+    if (t) t.checked = true;
+    temaUygula(a.tema);
   } catch (e) {
     console.error("Ayarlar okunamadı:", e);
   }
+}
+
+function seciliTema() {
+  return document.querySelector('input[name="tema"]:checked').value;
 }
 
 let kaydetZamanlayici = null;
@@ -112,9 +95,8 @@ function ayarlariKaydet() {
       await invoke("ayarlari_kaydet", {
         ayarlar: {
           ayri_sayfa: el.ayriSayfa.checked,
-          boyut: boyutTercihi(),
           cikti_klasoru: el.ciktiKlasoru.value,
-          uyari_9mb: el.uyari9mb.checked,
+          tema: seciliTema(),
         },
       });
     } catch (e) {
@@ -127,30 +109,38 @@ function ayarlariKaydet() {
 // Resim listesi
 // ---------------------------------------------------------------------------
 
-function dugme(metin, sinif, isle) {
-  const b = document.createElement("button");
-  b.type = "button";
-  b.className = sinif;
-  b.textContent = metin;
-  b.addEventListener("click", isle);
-  return b;
+let boyutZamanlayici = null;
+function boyutuTazele() {
+  clearTimeout(boyutZamanlayici);
+  if (resimler.length === 0) {
+    el.boyut.textContent = "";
+    return;
+  }
+  el.boyut.textContent = "Tahmini dosya boyutu: hesaplanıyor…";
+  boyutZamanlayici = setTimeout(async () => {
+    try {
+      const b = await invoke("belge_boyutu", { ayriSayfa: el.ayriSayfa.checked });
+      el.boyut.textContent = `Tahmini dosya boyutu: ${mb(b)}`;
+    } catch (e) {
+      el.boyut.textContent = "";
+      console.error(e);
+    }
+  }, 150);
 }
 
-async function listeyiCiz() {
+function dugmeMetni() {
+  el.uret.textContent = resimler.length > 1 ? "Hepsini UDF'de aç" : "UDF'de aç";
+}
+
+function listeyiCiz() {
   el.liste.innerHTML = "";
   el.sayac.textContent = resimler.length;
   el.listeBolumu.hidden = resimler.length === 0;
-  el.toplu.hidden = resimler.length < 2;
-
-  let olculer = [];
-  try {
-    olculer = await invoke("olculeri_hesapla", { boyut: boyutTercihi() });
-  } catch (e) {
-    console.error(e);
-  }
+  el.ayriSayfaSatiri.hidden = resimler.length < 2;
+  el.uret.disabled = resimler.length === 0;
+  dugmeMetni();
 
   resimler.forEach((r, i) => {
-    const o = olculer[i];
     const li = document.createElement("li");
 
     const img = document.createElement("img");
@@ -168,8 +158,9 @@ async function listeyiCiz() {
 
     const olcu = document.createElement("div");
     olcu.className = "olcu";
-    const cm = o ? ` → ${o.genislik_cm.toFixed(1)} × ${o.yukseklik_cm.toFixed(1)} cm` : "";
-    olcu.textContent = `${r.px_w} × ${r.px_h} px${cm} · ${r.bicim} · ${mb(r.bayt)}`;
+    olcu.textContent =
+      `${r.px_w} × ${r.px_h} px → ${r.genislik_cm.toFixed(1)} × ${r.yukseklik_cm.toFixed(1)} cm` +
+      ` · ${r.bicim} · ${mb(r.bayt)}`;
     bilgi.appendChild(olcu);
 
     if (r.orijinal_korundu) {
@@ -184,26 +175,18 @@ async function listeyiCiz() {
       bilgi.appendChild(isaret);
     }
 
-    if (o && o.sayfayi_asiyor) {
-      const tas = document.createElement("div");
-      tas.className = "tas";
-      tas.textContent = "Bu boyut A4 sayfasına sığmıyor — taşabilir.";
-      bilgi.appendChild(tas);
-    }
-
     li.appendChild(bilgi);
 
-    const eylemler = document.createElement("div");
-    eylemler.className = "kart-eylem";
-    eylemler.appendChild(dugme("Panoya kopyala", "birincil kucuk", () => kopyala([i])));
-    eylemler.appendChild(dugme("UDF'de aç", "ikincil kucuk", () => ac([i])));
-    eylemler.appendChild(
-      dugme("Kaldır", "baglanti", async () => {
-        resimler = await invoke("resmi_cikar", { indeks: i });
-        listeyiCiz();
-      })
-    );
-    li.appendChild(eylemler);
+    const sil = document.createElement("button");
+    sil.type = "button";
+    sil.className = "baglanti";
+    sil.textContent = "Kaldır";
+    sil.addEventListener("click", async () => {
+      resimler = await invoke("resmi_cikar", { indeks: i });
+      listeyiCiz();
+      boyutuTazele();
+    });
+    li.appendChild(sil);
 
     el.liste.appendChild(li);
   });
@@ -216,7 +199,6 @@ async function yollariEkle(yollar) {
     const sonuc = await invoke("resimleri_yukle", { yollar });
     resimler = sonuc.resimler;
     if (sonuc.hatalar.length > 0) {
-      // Okunamayan dosya sessizce yutulmaz: adıyla söylenir.
       durum(`${resimler.length} resim hazır. Okunamayan: ${sonuc.hatalar.join(" · ")}`, "kotu");
     } else {
       durum(resimler.length === 1 ? "Resim hazır." : `${resimler.length} resim hazır.`);
@@ -226,82 +208,53 @@ async function yollariEkle(yollar) {
   } finally {
     mesgulYap(false);
     listeyiCiz();
+    boyutuTazele();
   }
 }
 
 // ---------------------------------------------------------------------------
-// İki eylem: panoya kopyala / UDF'de aç
+// Tek eylem: UDF'de aç
 // ---------------------------------------------------------------------------
 
-/// Panoya kopyala: UDE arka planda, hiç görünmeden açılıp kapanır.
-async function kopyala(indeksler, kucult = false) {
-  el.buyukUyari.hidden = true;
-  el.kilavuz.hidden = true;
-  sonIslem = { tur: "kopyala", indeksler };
-  mesgulYap(true, "Panoya alınıyor… (UYAP editörü arka planda çalışıyor)");
-
+async function ac() {
+  if (resimler.length === 0) return;
+  mesgulYap(true, "Belge hazırlanıyor…");
   try {
-    const k = await invoke("panoya_kopyala", {
-      indeksler,
-      istek: istekKur(kucult),
+    const s = await invoke("udfde_ac", {
+      ayriSayfa: el.ayriSayfa.checked,
+      ciktiKlasoru: el.ciktiKlasoru.value,
     });
-    if (k.durum === "panoda") {
-      durum(`${k.mesaj} (${mb(k.boyut_bayt)})`, "iyi");
-      toast("Resim panoda", "Dilekçenizde Ctrl+V yapın.");
-      if (k.buyuk && el.uyari9mb.checked && !kucult) buyukUyar(k.boyut_bayt);
-    } else {
-      durum("Panoya kopyalanamadı.", "kotu");
-      kilavuzGoster("Kopyalama tamamlanamadı", k.mesaj);
-    }
-  } catch (e) {
-    durum(String(e), "kotu");
-  } finally {
-    mesgulYap(false);
-  }
-}
-
-/// UDF'de aç: belge kaydetme klasörüne yazılır ve editörde açılır.
-async function ac(indeksler, kucult = false) {
-  el.buyukUyari.hidden = true;
-  el.kilavuz.hidden = true;
-  sonIslem = { tur: "ac", indeksler };
-  mesgulYap(true, "Belge hazırlanıyor ve açılıyor…");
-
-  try {
-    const s = await invoke("udfde_ac", { indeksler, istek: istekKur(kucult) });
     sonUretilenYol = s.yol;
-    durum(`Belge hazır (${mb(s.boyut_bayt)}) ve açıldı.`, "iyi");
-    kilavuzGoster("Belge kaydedildi", s.yol);
-    if (s.buyuk && el.uyari9mb.checked && !kucult) buyukUyar(s.boyut_bayt);
+    durumKlasorlu(
+      s.ude_acildi
+        ? `Belge hazır (${mb(s.boyut_bayt)}) ve açıldı.`
+        : `Belge kaydedildi (${mb(s.boyut_bayt)}). UYAP Doküman Editörü bulunamadığı için açılamadı.`,
+      s.ude_acildi ? "iyi" : "kotu"
+    );
   } catch (e) {
     durum(String(e), "kotu");
-    kilavuzGoster("Açılamadı", String(e));
   } finally {
     mesgulYap(false);
   }
 }
 
-function buyukUyar(bayt) {
-  el.buyukMetin.textContent =
-    `Bu belge ${mb(bayt)}. UYAP 10 MB üstü UDF kabul etmiyor. ` +
-    `300 DPI'lık (≈2200 px uzun kenar) küçük sürümle tekrar denemek ister misiniz?`;
-  el.buyukUyari.hidden = false;
-}
-
-function kilavuzGoster(baslik, metin) {
-  el.kilavuzBaslik.textContent = baslik;
-  el.kilavuzMetin.textContent = metin;
-  el.kilavuz.hidden = false;
-}
-
-async function toast(baslik, govde) {
-  try {
-    let izin = await bildirim.isPermissionGranted();
-    if (!izin) izin = (await bildirim.requestPermission()) === "granted";
-    if (izin) bildirim.sendNotification({ title: baslik, body: govde });
-  } catch (e) {
-    console.error("Bildirim gönderilemedi:", e);
-  }
+/// Durum satırına "Klasörü aç" bağlantısını ekler (kaydedilen yer ayrı bir kutuda gösterilmez).
+function durumKlasorlu(metin, sinif) {
+  durum(metin, sinif);
+  if (!sonUretilenYol) return;
+  el.durum.append(" · ");
+  const a = document.createElement("a");
+  a.href = "#";
+  a.textContent = "Klasörü aç";
+  a.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    try {
+      await opener.revealItemInDir(sonUretilenYol);
+    } catch {
+      await invoke("klasorde_goster", { yol: sonUretilenYol });
+    }
+  });
+  el.durum.appendChild(a);
 }
 
 // ---------------------------------------------------------------------------
@@ -327,14 +280,41 @@ el.panodanAl.addEventListener("click", async () => {
   } finally {
     mesgulYap(false);
     listeyiCiz();
+    boyutuTazele();
   }
 });
 
 el.temizle.addEventListener("click", async () => {
   resimler = await invoke("listeyi_temizle");
+  sonUretilenYol = null;
   durum("");
   listeyiCiz();
+  boyutuTazele();
 });
+
+el.uret.addEventListener("click", ac);
+
+el.ayriSayfa.addEventListener("change", () => {
+  ayarlariKaydet();
+  boyutuTazele();
+});
+
+// --- ayarlar penceresi ---
+el.ayarlarAc.addEventListener("click", () => (el.ayarlarPerde.hidden = false));
+el.ayarlarKapat.addEventListener("click", () => (el.ayarlarPerde.hidden = true));
+el.ayarlarPerde.addEventListener("click", (e) => {
+  if (e.target === el.ayarlarPerde) el.ayarlarPerde.hidden = true;
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") el.ayarlarPerde.hidden = true;
+});
+
+document.querySelectorAll('input[name="tema"]').forEach((r) =>
+  r.addEventListener("change", () => {
+    temaUygula(seciliTema());
+    ayarlariKaydet();
+  })
+);
 
 el.klasorSec.addEventListener("click", async () => {
   const klasor = await dialog.open({ directory: true, defaultPath: el.ciktiKlasoru.value });
@@ -344,40 +324,46 @@ el.klasorSec.addEventListener("click", async () => {
   }
 });
 
-el.hepsiniKopyala.addEventListener("click", () => kopyala([]));
-el.hepsiniAc.addEventListener("click", () => ac([]));
-
-el.kucultUret.addEventListener("click", () => {
-  if (!sonIslem) return;
-  if (sonIslem.tur === "kopyala") kopyala(sonIslem.indeksler, true);
-  else ac(sonIslem.indeksler, true);
-});
-el.buyukKapat.addEventListener("click", () => (el.buyukUyari.hidden = true));
-el.kilavuzKapat.addEventListener("click", () => (el.kilavuz.hidden = true));
-el.kilavuzKlasor.addEventListener("click", async () => {
-  if (sonUretilenYol) {
-    try {
-      await opener.revealItemInDir(sonUretilenYol);
-    } catch {
-      await invoke("klasorde_goster", { yol: sonUretilenYol });
-    }
+el.gelistirici.addEventListener("click", async (e) => {
+  e.preventDefault();
+  try {
+    await opener.openUrl("https://x.com/CgrShn");
+  } catch (err) {
+    console.error(err);
   }
 });
 
-document.querySelectorAll('input[name="boyut"]').forEach((r) =>
-  r.addEventListener("change", () => {
-    // cm kutusu yalnız "Genişlik" seçiliyken açık.
-    el.boyutCm.disabled =
-      document.querySelector('input[name="boyut"]:checked').value !== "cm";
-    ayarlariKaydet();
-    listeyiCiz();
-  })
-);
-el.boyutCm.addEventListener("input", () => {
-  ayarlariKaydet();
-  listeyiCiz();
+el.guncellemeDenetle.addEventListener("click", async () => {
+  el.guncellemeDenetle.disabled = true;
+  el.guncellemeKur.hidden = true;
+  el.guncellemeDurum.textContent = "Denetleniyor…";
+  try {
+    const g = await invoke("guncelleme_denetle");
+    el.surum.textContent = g.bu_surum;
+    el.guncellemeDurum.textContent = g.mesaj;
+    if (g.durum === "yeni-surum-var" && g.indirme_adresi) {
+      indirmeAdresi = g.indirme_adresi;
+      el.guncellemeKur.hidden = false;
+    }
+  } catch (e) {
+    el.guncellemeDurum.textContent = String(e);
+  } finally {
+    el.guncellemeDenetle.disabled = false;
+  }
 });
-[el.ayriSayfa, el.uyari9mb].forEach((c) => c.addEventListener("change", ayarlariKaydet));
+
+el.guncellemeKur.addEventListener("click", async () => {
+  el.guncellemeKur.disabled = true;
+  el.guncellemeDurum.textContent = "İndiriliyor…";
+  try {
+    await invoke("guncellemeyi_kur", { indirmeAdresi });
+    el.guncellemeDurum.textContent = "Kurulum başlatıldı.";
+  } catch (e) {
+    el.guncellemeDurum.textContent = String(e);
+  } finally {
+    el.guncellemeKur.disabled = false;
+  }
+});
 
 // Sürükle-bırak (Tauri v2 penceresi; tarayıcı olayları yerine webview olayı)
 webview.getCurrentWebview().onDragDropEvent((olay) => {
@@ -392,8 +378,25 @@ webview.getCurrentWebview().onDragDropEvent((olay) => {
   }
 });
 
-// Tarayıcının kendi sürükle-bırak davranışı (dosyayı açmak) engellensin.
 window.addEventListener("dragover", (e) => e.preventDefault());
 window.addEventListener("drop", (e) => e.preventDefault());
 
-ayarlariYukle().then(listeyiCiz);
+(async () => {
+  await ayarlariYukle();
+  listeyiCiz();
+  try {
+    el.surum.textContent = await invoke("surum");
+  } catch (e) {
+    console.error(e);
+  }
+  try {
+    const kurulu = await invoke("ude_kurulu_mu");
+    if (!kurulu) {
+      durum(
+        "UYAP Doküman Editörü bulunamadı. Belgeler yine üretilip kaydedilir; açmak için editör gerekir."
+      );
+    }
+  } catch (e) {
+    console.error(e);
+  }
+})();
