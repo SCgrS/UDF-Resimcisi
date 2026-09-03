@@ -47,22 +47,36 @@ Bütün ölçümlerin ayrıntısı: [DOGRULAMA.md](DOGRULAMA.md).
 
 ## Nasıl kullanılır
 
-1. Resimleri pencereye sürükleyin (veya **Dosya seç** / **Panodaki resmi al**).
-2. **UDF'de aç** düğmesine basın. Birden fazla resim eklediyseniz düğme **Hepsini UDF'de aç**
-   olur.
+1. Resimleri pencereye sürükleyin veya **Dosya seç**'e basın. Panoda bir resim varsa
+   **Ctrl+V** ile ya da pencerenin herhangi bir yerine sağ tıklayıp **Yapıştır** ile de
+   ekleyebilirsiniz.
+2. **UDF'de aç** düğmesine basın.
 
 Belge kaydetme klasörüne yazılır ve (editör kuruluysa) açılır. Düğmenin altında, resimler
-eklendikçe güncellenen bir **tahmini dosya boyutu** yazar.
+eklendikçe güncellenen bir **üretilecek dosya boyutu** yazar.
 
 Desteklenen girdiler: PNG, JPEG, WEBP, BMP, TIFF, GIF (ilk kare).
 PNG ve JPEG girdilerinde **tek bir bayt bile değiştirilmez** — yeniden sıkıştırma yoktur.
 Telefon fotoğraflarında EXIF `Orientation` okunur; döndürme gerekiyorsa kayıpsız PNG'ye çevrilir.
 
-Resim her zaman **tam çözünürlükle** gömülür; sayfaya sığması yalnızca punto cinsinden
+Resim varsayılan olarak **tam çözünürlükle** gömülür; sayfaya sığması yalnızca punto cinsinden
 görüntüleme ölçüsüyle sağlanır, bitmap'e dokunulmaz.
 
-Birden fazla resim eklerseniz **Her resim ayrı sayfada** seçeneği çıkar. Kapalıyken (varsayılan)
-resimler arasına bir satır boşluk konur, açıkken her resim yeni sayfaya geçer.
+### Kalite
+
+Düğmenin üstündeki listeden dosyayı küçültebilirsiniz. **Bu bir ölçek ayarı değildir:** resim
+her basamakta sayfada aynı yeri kaplar, yalnızca içindeki piksel yoğunluğu — yani ayrıntı —
+azalır.
+
+| Seçenek | Belgeye giren bitmap (3000 × 2000 px girdi için) |
+| --- | --- |
+| **Orijinal Boyut** (varsayılan) | 3000 × 2000 px — baytlara hiç dokunulmaz |
+| **Büyük Boyut** | 1574 × 1049 px |
+| **Orta Boyut** | 1050 × 700 px |
+| **Küçük Boyut** | 526 × 350 px — UDE'nin kendi "Ekle → Resim" çıktısıyla (524 × 349) eş değer |
+
+Sayfaya zaten sığan küçük resimler hiçbir basamakta değiştirilmez: büyütmek kaliteyi artırmaz,
+yalnızca dosyayı şişirir.
 
 Aynı fotoğrafı birden çok kez ekleyebilirsiniz; belgeye eklediğiniz sırayla girer.
 
@@ -71,6 +85,8 @@ Aynı fotoğrafı birden çok kez ekleyebilirsiniz; belgeye eklediğiniz sırayl
 Sağ üstteki çark düğmesinden:
 
 * **Tema** — Sistem / Açık / Koyu
+* **Her resim ayrı sayfada** — kapalıyken (varsayılan) resimler arasına bir satır boşluk
+  konur, açıkken her resim yeni sayfaya geçer
 * **Kaydetme klasörü** — varsayılan `Belgelerim\UDF Resimcisi`
 * **Güncellemeleri denetle** — yeni sürüm varsa tek tıkla indirip kurar
 * UYAP evrak yükleme sınırının **10 MB** olduğu hatırlatması
@@ -79,7 +95,8 @@ Sağ üstteki çark düğmesinden:
 ## Dosya boyutu
 
 UYAP'a yüklenebilen evrak üst sınırı ≈ **10 MB**. Uygulama çözünürlüğe kendiliğinden dokunmaz;
-düğmenin altındaki tahmini boyutu izleyerek kararı siz verirsiniz.
+düğmenin altındaki **üretilecek dosya boyutu** satırını izleyerek kararı siz verirsiniz. Belge
+sınırı aşıyorsa düğmenin üstündeki kalite listesinden bir basamak inin.
 
 Ölçülmüş büyüklükler:
 
@@ -90,6 +107,13 @@ düğmenin altındaki tahmini boyutu izleyerek kararı siz verirsiniz.
 
 Base64 kodlaması veriyi %33 şişirir ama `.udf` bir ZIP arşivi olduğu için sıkıştırma bunu geri
 alır: dosya boyutu pratikte kaynak görselin boyutuna çok yakın çıkar.
+
+## Kaldırma
+
+Denetim Masası → Program Kaldır → **UDF Resimcisi**. Kaldırıcıdaki **Uygulama verilerini sil**
+kutusunu işaretlerseniz ayar dosyası (`%APPDATA%\UDF Resimcisi`) ve kaydetme klasöründeki
+`.udf` belgeleri de silinir. Kaydetme klasöründe uygulamanın üretmediği başka dosyalar varsa
+onlara dokunulmaz ve klasör yerinde kalır.
 
 ## Kaynaktan derleme
 

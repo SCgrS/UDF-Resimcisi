@@ -8,8 +8,10 @@ use std::path::Path;
 
 use anyhow::{anyhow, bail, Context, Result};
 use image::{DynamicImage, ImageFormat};
+use serde::{Deserialize, Serialize};
 
-use crate::udf::ImageSpec;
+use crate::udf::model::PageFormat;
+use crate::udf::{goruntuleme_boyutu, ImageSpec, Sizing};
 
 /// Yüklenmiş bir resim ve kullanıcıya gösterilecek bilgileri.
 #[derive(Debug, Clone)]
@@ -21,6 +23,47 @@ pub struct YuklenenResim {
     pub orijinal_korundu: bool,
     /// EXIF nedeniyle döndürüldüyse true.
     pub dondurul: bool,
+}
+
+/// Kullanıcının seçtiği kalite basamağı.
+///
+/// **Ölçek ayarı değildir.** Resmin belgedeki görüntüleme boyutu (cm) her basamakta aynı
+/// kalır; değişen tek şey o alanın içine kaç piksel düştüğüdür. UDE 1 pikseli 1 punto
+/// saydığı için "punto başına 1 piksel" tam olarak UDE'nin kendi `Ekle → Resim` çıktısına
+/// denk gelir (3000×2000 px görsel → 524×349 px). Çarpanlar bunun katıdır.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Kalite {
+    /// Hiç dokunma: baytlar olduğu gibi gömülür (varsayılan).
+    #[serde(rename = "orijinal")]
+    Orijinal,
+    #[serde(rename = "buyuk")]
+    Buyuk,
+    #[serde(rename = "orta")]
+    Orta,
+    /// UYAP editörünün kendi resim ekleme kalitesiyle eş değer.
+    #[serde(rename = "kucuk")]
+    Kucuk,
+}
+
+impl Kalite {
+    /// Punto başına düşecek piksel sayısı. `Orijinal` için yeniden örnekleme yok.
+    fn carpan(self) -> Option<f64> {
+        match self {
+            Kalite::Orijinal => None,
+            Kalite::Buyuk => Some(3.0),
+            Kalite::Orta => Some(2.0),
+            Kalite::Kucuk => Some(1.0),
+        }
+    }
+
+    /// Yeniden kodlarken kullanılacak JPEG kalitesi.
+    fn jpeg_kalitesi(self) -> u8 {
+        match self {
+            Kalite::Orijinal | Kalite::Buyuk => 90,
+            Kalite::Orta => 82,
+            Kalite::Kucuk => 75,
+        }
+    }
 }
 
 /// UDE'nin sorunsuz gösterdiği gömme biçimleri. (§6.4 ile ölçüldü: JPEG de kabul ediliyor.)
@@ -115,6 +158,76 @@ fn png_kodla(img: &DynamicImage) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
+
+/// Resmi seçilen kalite basamağına indirger.
+///
+/// Görüntüleme boyutu `FitPage` ile hesaplandığı ve hedef piksel ölçüsü o boyutun **üstünde**
+/// tutulduğu için resim sayfada aynı yeri kaplamayı sürdürür; yalnızca içindeki ayrıntı azalır.
+/// Zaten hedeften daha az pikseli olan resimlere dokunulmaz (büyütmek kaliteyi artırmaz,
+/// dosyayı şişirir).
+pub fn kaliteye_indir(spec: &ImageSpec, kalite: Kalite, sayfa: &PageFormat) -> Result<ImageSpec> {
+    let Some(carpan) = kalite.carpan() else {
+        return Ok(spec.clone());
+    };
+    let (gorunen_w, gorunen_h) = goruntuleme_boyutu(spec.px_w, spec.px_h, Sizing::FitPage, sayfa);
+    // +1 px: yuvarlama yüzünden hedef, görüntüleme boyutunun altına düşüp resmi
+    // sayfada küçültmesin.
+    let hedef_w = (gorunen_w * carpan).ceil() as u32 + 1;
+    let hedef_h = (gorunen_h * carpan).ceil() as u32 + 1;
+    if hedef_w >= spec.px_w || hedef_h >= spec.px_h {
+        return Ok(spec.clone());
+    }
+
+    let img = image::load_from_memory(&spec.bytes).context("Resim çözülemedi")?;
+    let kucuk = img.resize(hedef_w, hedef_h, image::imageops::FilterType::Lanczos3);
+    let (w, h) = (kucuk.width(), kucuk.height());
+    let bytes = en_kucuk_kodlama(&kucuk, kalite)?;
+    Ok(ImageSpec {
+        bytes,
+        px_w: w,
+        px_h: h,
+    })
+}
+
+/// PNG ve JPEG'i deneyip küçük olanı seçer. Saydamlık varsa JPEG hiç denenmez.
+fn en_kucuk_kodlama(img: &DynamicImage, kalite: Kalite) -> Result<Vec<u8>> {
+    let png = png_kodla(img)?;
+    if saydam_mi(img) {
+        return Ok(png);
+    }
+    let jpeg = jpeg_kodla(img, kalite.jpeg_kalitesi())?;
+    Ok(if jpeg.len() < png.len() { jpeg } else { png })
+}
+
+/// Alfa kanalı **kullanılıyor** mu (yalnızca var olması yetmez; ekran görüntüleri hep
+/// RGBA'dır ama tamamen mattır).
+fn saydam_mi(img: &DynamicImage) -> bool {
+    if !img.color().has_alpha() {
+        return false;
+    }
+    img.to_rgba8().pixels().any(|p| p.0[3] != 255)
+}
+
+fn jpeg_kodla(img: &DynamicImage, kalite: u8) -> Result<Vec<u8>> {
+    let rgb = img.to_rgb8();
+    let mut buf = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, kalite)
+        .encode(
+            rgb.as_raw(),
+            rgb.width(),
+            rgb.height(),
+            image::ExtendedColorType::Rgb8,
+        )
+        .context("JPEG kodlanamadı")?;
+    Ok(buf)
+}
+
+/// Panoda gömülebilecek bir resim var mı? (Sağ tık menüsündeki "Yapıştır" için.)
+pub fn panoda_resim_var() -> bool {
+    arboard::Clipboard::new()
+        .map(|mut p| p.get_image().is_ok())
+        .unwrap_or(false)
+}
 
 /// Panodaki resmi PNG olarak alır (ekran görüntüsünü tek tuşla UDF yapmak için).
 pub fn panodan() -> Result<YuklenenResim> {
@@ -236,6 +349,98 @@ mod tests {
         assert!(y.orijinal_korundu, "yön 1: yeniden kodlama yok");
         assert_eq!(y.spec.bytes, jpeg);
         assert_eq!((y.spec.px_w, y.spec.px_h), (40, 20));
+    }
+
+    /// Sayfaya sığmayan, gerçekçi (düz renk olmayan) bir görsel.
+    fn genis_gorsel(w: u32, h: u32) -> ImageSpec {
+        let img = DynamicImage::ImageRgb8(image::RgbImage::from_fn(w, h, |x, y| {
+            image::Rgb([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8])
+        }));
+        let bytes = png_kodla(&img).unwrap();
+        ImageSpec {
+            bytes,
+            px_w: w,
+            px_h: h,
+        }
+    }
+
+    #[test]
+    fn orijinal_kalite_baytlara_dokunmaz() {
+        let spec = genis_gorsel(1500, 1000);
+        let sonuc = kaliteye_indir(&spec, Kalite::Orijinal, &PageFormat::default()).unwrap();
+        assert_eq!(sonuc.bytes, spec.bytes);
+        assert_eq!((sonuc.px_w, sonuc.px_h), (1500, 1000));
+    }
+
+    #[test]
+    fn dusuk_kalite_sayfadaki_yeri_degistirmez() {
+        let sayfa = PageFormat::default();
+        // En yüksek basamağın (punto başına 3 piksel) bile altına düşmesi için yeterince büyük.
+        let spec = genis_gorsel(2400, 1600);
+        let (once_w, once_h) = goruntuleme_boyutu(spec.px_w, spec.px_h, Sizing::FitPage, &sayfa);
+
+        for kalite in [Kalite::Buyuk, Kalite::Orta, Kalite::Kucuk] {
+            let k = kaliteye_indir(&spec, kalite, &sayfa).unwrap();
+            let (sonra_w, sonra_h) = goruntuleme_boyutu(k.px_w, k.px_h, Sizing::FitPage, &sayfa);
+            assert!(
+                (once_w - sonra_w).abs() < 1.0 && (once_h - sonra_h).abs() < 1.0,
+                "{kalite:?}: görüntüleme boyutu {once_w}×{once_h} → {sonra_w}×{sonra_h}"
+            );
+        }
+    }
+
+    #[test]
+    fn kalite_basamaklari_gittikce_kucultur() {
+        let sayfa = PageFormat::default();
+        let spec = genis_gorsel(2400, 1600);
+        let buyuk = kaliteye_indir(&spec, Kalite::Buyuk, &sayfa).unwrap();
+        let orta = kaliteye_indir(&spec, Kalite::Orta, &sayfa).unwrap();
+        let kucuk = kaliteye_indir(&spec, Kalite::Kucuk, &sayfa).unwrap();
+
+        assert!(buyuk.px_w > orta.px_w && orta.px_w > kucuk.px_w);
+        assert!(spec.bytes.len() > buyuk.bytes.len(), "büyük, orijinalden küçük olmalı");
+        assert!(buyuk.bytes.len() > orta.bytes.len());
+        assert!(orta.bytes.len() > kucuk.bytes.len());
+    }
+
+    #[test]
+    fn kucuk_kalite_ude_ile_ayni_yogunlukta() {
+        // Ölçüm: UDE "Ekle → Resim" 3000×2000 px görseli 524×349 px'e indiriyor.
+        // "Küçük Boyut" punto başına 1 piksel demek olduğu için aynı yere çıkmalı.
+        let spec = genis_gorsel(1500, 1000);
+        let k = kaliteye_indir(&spec, Kalite::Kucuk, &PageFormat::default()).unwrap();
+        assert!(
+            (k.px_w as i64 - 524).abs() <= 3 && (k.px_h as i64 - 349).abs() <= 3,
+            "{}×{} bekleniyordu ≈524×349",
+            k.px_w,
+            k.px_h
+        );
+    }
+
+    #[test]
+    fn sayfaya_zaten_sigan_kucuk_resim_buyutulmez() {
+        let spec = genis_gorsel(200, 150);
+        let k = kaliteye_indir(&spec, Kalite::Kucuk, &PageFormat::default()).unwrap();
+        assert_eq!((k.px_w, k.px_h), (200, 150), "büyütme yapılmamalı");
+        assert_eq!(k.bytes, spec.bytes, "dokunulmamış olmalı");
+    }
+
+    #[test]
+    fn saydam_resim_jpegle_bozulmaz() {
+        let img = DynamicImage::ImageRgba8(image::RgbaImage::from_fn(1500, 1000, |x, y| {
+            image::Rgba([(x % 256) as u8, (y % 256) as u8, 40, if x < 10 { 0 } else { 255 }])
+        }));
+        let spec = ImageSpec {
+            bytes: png_kodla(&img).unwrap(),
+            px_w: 1500,
+            px_h: 1000,
+        };
+        let k = kaliteye_indir(&spec, Kalite::Kucuk, &PageFormat::default()).unwrap();
+        assert_eq!(
+            image::guess_format(&k.bytes).unwrap(),
+            ImageFormat::Png,
+            "saydamlık varsa PNG kalmalı"
+        );
     }
 
     #[test]

@@ -66,6 +66,7 @@ body {
   font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
   -webkit-user-select: none;
   user-select: none;
+  transition: background .12s;
 }
 
 h1 { font-size: 20px; margin: 0; }
@@ -103,14 +104,19 @@ section {
   box-shadow: var(--golge);
 }
 
-/* --- bırakma alanı --- */
+/* --- bırakma alanı ---
+   Çerçevesi yok: resim uygulamanın her yerine sürüklenebildiği ve her yerine sağ tıkla
+   yapıştırılabildiği için kart sınırı yanıltıcıydı. Alan zeminle aynı yüzeyde durur. */
 .birakma {
-  border: 2px dashed var(--cizgi);
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   text-align: center;
   padding: 20px 16px;
-  transition: border-color .12s, background .12s;
 }
-.birakma.aktif { border-color: var(--vurgu); background: var(--vurgu-zemin); }
+/* Sürükleme sırasında sınırı olmayan alan yerine tüm pencere vurgulanır. */
+body.birakma-aktif { background: var(--vurgu-zemin); }
 .birakma .ikon {
   width: 40px; height: 40px;
   stroke: var(--vurgu); stroke-width: 1.8; fill: none;
@@ -162,9 +168,6 @@ button.birincil { font-size: 15px; font-weight: 600; padding: 11px 30px; }
 .liste .olcu { color: var(--alt-metin); font-size: 12.5px; }
 .liste .isaret { color: var(--iyi); font-size: 12.5px; }
 
-/* --- ayrı sayfa satırı --- */
-.orta-satir { display: flex; justify-content: center; }
-
 /* --- eylem: sayfayla birlikte kayar, ortalanmış --- */
 .eylem {
   display: flex;
@@ -179,6 +182,44 @@ button.birincil { font-size: 15px; font-weight: 600; padding: 11px 30px; }
 .durum.iyi { color: var(--iyi); font-weight: 600; }
 .durum.kotu { color: var(--kotu); font-weight: 600; }
 .durum a { color: inherit; }
+
+/* --- kalite listesi: birincil düğmenin üstünde, düğme görünümlü --- */
+.kalite {
+  font: inherit;
+  padding: 7px 32px 7px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--vurgu);
+  background-color: transparent;
+  color: var(--vurgu);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23808b99' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 11px 8px;
+}
+.kalite:hover:not(:disabled) { background-color: var(--vurgu-zemin); }
+.kalite:disabled { opacity: .5; cursor: default; }
+.kalite option { color: var(--metin); background: var(--kart); }
+
+/* --- sağ tık menüsü --- */
+.baglam {
+  position: fixed; z-index: 40;
+  background: var(--kart);
+  border: 1px solid var(--cizgi);
+  border-radius: 8px;
+  box-shadow: var(--golge);
+  padding: 4px;
+  min-width: 132px;
+}
+.baglam button {
+  display: block; width: 100%; text-align: left;
+  background: none; border: none; color: var(--metin);
+  padding: 7px 10px; border-radius: 6px;
+}
+.baglam button:hover:not(:disabled) { background: var(--vurgu-zemin); color: var(--vurgu); }
+.baglam button:disabled { color: var(--alt-metin); opacity: .6; cursor: default; }
 
 /* --- seçenek satırları (ayarlar) --- */
 .satir { display: flex; align-items: center; gap: 12px; padding: 7px 0; flex-wrap: wrap; }

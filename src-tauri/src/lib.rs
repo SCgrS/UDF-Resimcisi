@@ -10,6 +10,8 @@ pub mod settings;
 pub mod udf;
 
 #[cfg(windows)]
+pub mod kayit;
+#[cfg(windows)]
 pub mod ude;
 
 pub fn run() {
@@ -22,6 +24,7 @@ pub fn run() {
             commands::ayarlari_kaydet,
             commands::resimleri_yukle,
             commands::panodan_al,
+            commands::panoda_resim_var_mi,
             commands::resmi_cikar,
             commands::listeyi_temizle,
             commands::liste_getir,

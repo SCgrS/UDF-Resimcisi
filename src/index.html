@@ -30,9 +30,9 @@
         </svg>
         <p class="buyuk">Resimleri buraya sürükleyin</p>
         <p class="alt">PNG, JPEG, WEBP, BMP, TIFF, GIF — birden fazla olabilir</p>
+        <p class="alt">Panoda resim varsa <strong>Ctrl+V</strong> veya sağ tık → <strong>Yapıştır</strong> ile ekleyebilirsiniz</p>
         <div class="dugmeler">
           <button id="dosya-sec" type="button">Dosya seç</button>
-          <button id="panodan-al" type="button" class="ikincil">Panodaki resmi al</button>
         </div>
       </div>
     </section>
@@ -45,14 +45,13 @@
       <ul id="liste" class="liste"></ul>
     </section>
 
-    <div id="ayri-sayfa-satiri" class="orta-satir" hidden>
-      <label class="onay">
-        <input type="checkbox" id="ayri-sayfa" />
-        <span>Her resim ayrı sayfada</span>
-      </label>
-    </div>
-
     <div class="eylem">
+      <select id="kalite" class="kalite" aria-label="Resim kalitesi">
+        <option value="orijinal" selected>Orijinal Boyut</option>
+        <option value="buyuk">Büyük Boyut</option>
+        <option value="orta">Orta Boyut</option>
+        <option value="kucuk">Küçük Boyut</option>
+      </select>
       <button id="uret" type="button" class="birincil" disabled>UDF'de aç</button>
       <p id="boyut" class="boyut"></p>
       <p id="durum" class="durum" role="status" aria-live="polite"></p>
@@ -62,6 +61,11 @@
   <footer>
     <p class="alt">Tamamen yerel çalışır. UYAP/HAVELSAN ile ilişkili değildir.</p>
   </footer>
+
+  <!-- Sağ tık menüsü: yalnızca resim yapıştırma -->
+  <div id="baglam-menu" class="baglam" hidden>
+    <button id="baglam-yapistir" type="button">Yapıştır</button>
+  </div>
 
   <!-- Ayarlar penceresi -->
   <div id="ayarlar-perde" class="perde" hidden>
@@ -77,6 +81,16 @@
           <label class="secim"><input type="radio" name="tema" value="sistem" checked /><span>Sistem</span></label>
           <label class="secim"><input type="radio" name="tema" value="acik" /><span>Açık</span></label>
           <label class="secim"><input type="radio" name="tema" value="koyu" /><span>Koyu</span></label>
+        </div>
+      </div>
+
+      <div class="satir">
+        <span class="etiket">Sayfa düzeni</span>
+        <div class="secim-grubu">
+          <label class="onay">
+            <input type="checkbox" id="ayri-sayfa" />
+            <span>Her resim ayrı sayfada</span>
+          </label>
         </div>
       </div>
 

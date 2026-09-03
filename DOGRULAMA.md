@@ -139,3 +139,66 @@ Yine kaldırılanlar: 9 MB uyarısı ve 300 DPI küçültme, görüntüleme boyu
 4. `.udf` dosya ilişkisi kayıt defterinde:
    `"C:\Uyap\Uyap Kelime Islemci\Uyap Doküman Editörü.exe" "getNewWPInstance" "EDITOR_TYPE_DOCUMENT" "%1" "%~s1"`
    — promptun §5.1'deki uyarısı doğrulandı: doğrudan çalıştırırken `getNewWPInstance` jetonu şart.
+
+## 1.3 sürümü — kalite basamakları ve kaldırma temizliği
+
+### Kaldırırken "Uygulama verilerini sil" gerçekten silmiyordu
+
+Ölçüm (1.2.0, bu bilgisayarda kaldırıldı, kutu işaretli):
+
+| Yer | Kaldırmadan sonra |
+|---|---|
+| `%LOCALAPPDATA%\UDF Resimcisi` (program) | silindi |
+| `%APPDATA%\UDF Resimcisi\ayarlar.json` | **duruyor** |
+| `Belgelerim\UDF Resimcisi\a.udf` | **duruyor** |
+
+Sebep: Tauri'nin NSIS şablonu yalnızca `$APPDATA\<paket kimliği>` ve
+`$LOCALAPPDATA\<paket kimliği>` klasörlerini siliyor (`com.cagrisahin.udfresimcisi`), bu
+uygulamanın verileri ise ürün adıyla açılmış klasörlerde duruyor.
+
+Çözüm: `src-tauri/nsis/hooks.nsh` içindeki `NSIS_HOOK_POSTUNINSTALL` kancası. Kaydetme
+klasörünün güncel yolunu uygulama `HKCU\Software\UDF Resimcisi\CiktiKlasoru` değerine yazıyor
+(`src-tauri/src/kayit.rs`); kaldırıcı oradan okuyor.
+
+Ölçüm (1.3.0, kutu işaretli):
+
+| Yer | Kaldırmadan sonra |
+|---|---|
+| `%LOCALAPPDATA%\UDF Resimcisi` | silindi |
+| `%APPDATA%\UDF Resimcisi` | silindi |
+| Kaydetme klasöründeki `deneme.udf` | silindi |
+| Kaydetme klasöründeki `onemli.txt` (uygulamanın üretmediği dosya) | **korundu**, klasör de yerinde kaldı |
+| `HKCU\Software\UDF Resimcisi` | silindi |
+
+Kaydetme klasörü hiçbir zaman özyinelemeli silinmiyor: yalnızca `*.udf` siliniyor, klasör de
+ancak boş kaldıysa kaldırılıyor. Kullanıcı kaydetme klasörü olarak "Belgelerim"in kendisini
+seçmiş olabilir.
+
+Bir kez, uygulama kapatıldıktan ~1 sn sonra kaldırıcı çalıştırıldığında `%APPDATA%` klasörü
+silinemedi (dosya tutamacı hâlâ açıktı). Kanca artık iki saniye bekleyip bir kez daha deniyor,
+o da olmazsa işi `/REBOOTOK` ile yeniden başlatmaya bırakıyor.
+
+### Kalite basamakları
+
+Basamaklar **punto başına düşen piksel** olarak tanımlı. UDE 1 pikseli 1 punto saydığı için
+"punto başına 1 piksel" tam olarak UDE'nin kendi `Ekle → Resim` çıktısına denk geliyor.
+
+3000 × 2000 px girdi (sayfaya sığdırılmış görüntüleme ölçüsü 524,41 × 349,61 punto):
+
+| Seçenek | Belgeye giren bitmap |
+|---|---|
+| Orijinal Boyut | 3000 × 2000 px (baytlar korunuyor) |
+| Büyük Boyut | 1574 × 1049 px |
+| Orta Boyut | 1050 × 700 px |
+| Küçük Boyut | 526 × 350 px |
+| UDE "Ekle → Resim" (Kayıpsız seçili) | 524 × 349 px |
+
+Uygulamada ölçüldü (2600 × 2000 px pano görüntüsü, gürültü deseni):
+Orijinal Boyut'ta belge 19,1 MB; Küçük Boyut'ta 60 KB. Üretilen belgedeki resim öğesi
+`width="524.4" height="403.8"` — Orijinal Boyut'takiyle aynı yeri kaplıyor (18,5 × 14,2 cm).
+
+Sayfaya zaten sığan resimler hiçbir basamakta değiştirilmiyor: hedef piksel ölçüsü görüntüleme
+ölçüsünün üstünde tutuluyor, böylece resim küçülmüyor; büyütme de hiç yapılmıyor.
+
+Kodlama: küçültülen resim hem PNG hem JPEG olarak kodlanıp küçük olanı seçiliyor. Alfa kanalı
+gerçekten kullanılıyorsa (herhangi bir piksel saydamsa) JPEG hiç denenmiyor.

@@ -1,13 +1,14 @@
 //! Arayüzün çağırdığı uçlar. Ağır iş (resim çözme, belge üretimi, ağ) bloklayan iş
 //! parçacığında çalışır; pencere donmaz.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::Serialize;
 use tauri::State;
 
-use crate::image_io::{self, YuklenenResim};
+use crate::image_io::{self, Kalite, YuklenenResim};
 use crate::settings::{self, Ayarlar};
 use crate::udf::{self, BuildOptions, ImageSpec, Sizing, PT_PER_CM};
 
@@ -21,6 +22,19 @@ pub struct Oturum {
 pub struct Kayit {
     pub ad: String,
     pub resim: YuklenenResim,
+    /// Kalite basamağı başına bir kez üretilen indirgenmiş sürüm. Boyut satırı her
+    /// seçim değişiminde yeniden hesaplandığı için aynı resmi tekrar tekrar ölçeklemeyelim.
+    onbellek: HashMap<Kalite, ImageSpec>,
+}
+
+impl Kayit {
+    fn yeni(ad: String, resim: YuklenenResim) -> Self {
+        Self {
+            ad,
+            resim,
+            onbellek: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -121,7 +135,7 @@ pub async fn resimleri_yukle(
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| "resim".to_string());
             match image_io::dosyadan(&p) {
-                Ok(r) => cikti.push(Ok(Kayit { ad, resim: r })),
+                Ok(r) => cikti.push(Ok(Kayit::yeni(ad, r))),
                 Err(e) => cikti.push(Err(format!("{ad}: {e}"))),
             }
         }
@@ -156,12 +170,17 @@ pub async fn panodan_al(oturum: State<'_, Oturum>) -> Result<Vec<ResimBilgi>, St
     {
         let mut liste = oturum.resimler.lock().map_err(hata)?;
         let n = liste.len() + 1;
-        liste.push(Kayit {
-            ad: format!("pano-{n}.png"),
-            resim: r,
-        });
+        liste.push(Kayit::yeni(format!("pano-{n}.png"), r));
     }
     liste_bilgisi(&oturum)
+}
+
+/// Sağ tık menüsündeki "Yapıştır" öğesi soluk mu olsun?
+#[tauri::command]
+pub async fn panoda_resim_var_mi() -> bool {
+    tauri::async_runtime::spawn_blocking(image_io::panoda_resim_var)
+        .await
+        .unwrap_or(false)
 }
 
 #[tauri::command]
@@ -267,16 +286,33 @@ fn temiz_dosya_adi(s: &str) -> String {
         .to_string()
 }
 
-fn belge_uret(ayri_sayfa: bool, oturum: &State<'_, Oturum>) -> Result<(Vec<u8>, String), String> {
+fn belge_uret(
+    ayri_sayfa: bool,
+    kalite: Kalite,
+    oturum: &State<'_, Oturum>,
+) -> Result<(Vec<u8>, String), String> {
     let (specler, govde) = {
-        let liste = oturum.resimler.lock().map_err(hata)?;
+        let sayfa = udf::model::PageFormat::default();
+        let mut liste = oturum.resimler.lock().map_err(hata)?;
         if liste.is_empty() {
             return Err("Önce bir resim ekleyin.".to_string());
         }
-        (
-            liste.iter().map(|k| k.resim.spec.clone()).collect::<Vec<_>>(),
-            govde_sec(&liste),
-        )
+        let govde = govde_sec(&liste);
+        let mut specler = Vec::with_capacity(liste.len());
+        for k in liste.iter_mut() {
+            if kalite == Kalite::Orijinal {
+                specler.push(k.resim.spec.clone());
+                continue;
+            }
+            if let Some(hazir) = k.onbellek.get(&kalite) {
+                specler.push(hazir.clone());
+                continue;
+            }
+            let indirilmis = image_io::kaliteye_indir(&k.resim.spec, kalite, &sayfa).map_err(hata)?;
+            k.onbellek.insert(kalite, indirilmis.clone());
+            specler.push(indirilmis);
+        }
+        (specler, govde)
     };
     let bytes = udf::build_udf(&specler, &secenekler(ayri_sayfa)).map_err(hata)?;
     Ok((bytes, temiz_dosya_adi(&govde)))
@@ -285,12 +321,16 @@ fn belge_uret(ayri_sayfa: bool, oturum: &State<'_, Oturum>) -> Result<(Vec<u8>, 
 /// Listedeki resimlerden üretilecek `.udf` dosyasının boyutu (bayt).
 /// Gerçekten belge kurup ölçer — tahmin değil, kesin değer.
 #[tauri::command]
-pub async fn belge_boyutu(ayri_sayfa: bool, oturum: State<'_, Oturum>) -> Result<u64, String> {
+pub async fn belge_boyutu(
+    ayri_sayfa: bool,
+    kalite: Kalite,
+    oturum: State<'_, Oturum>,
+) -> Result<u64, String> {
     let bos = oturum.resimler.lock().map_err(hata)?.is_empty();
     if bos {
         return Ok(0);
     }
-    let (bytes, _) = belge_uret(ayri_sayfa, &oturum)?;
+    let (bytes, _) = belge_uret(ayri_sayfa, kalite, &oturum)?;
     Ok(bytes.len() as u64)
 }
 
@@ -298,10 +338,11 @@ pub async fn belge_boyutu(ayri_sayfa: bool, oturum: State<'_, Oturum>) -> Result
 #[tauri::command]
 pub async fn udfde_ac(
     ayri_sayfa: bool,
+    kalite: Kalite,
     cikti_klasoru: String,
     oturum: State<'_, Oturum>,
 ) -> Result<UretimSonucu, String> {
-    let (bytes, govde) = belge_uret(ayri_sayfa, &oturum)?;
+    let (bytes, govde) = belge_uret(ayri_sayfa, kalite, &oturum)?;
     let klasor = PathBuf::from(&cikti_klasoru);
 
     tauri::async_runtime::spawn_blocking(move || -> Result<UretimSonucu, String> {

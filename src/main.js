@@ -11,20 +11,22 @@ const $ = (id) => document.getElementById(id);
 const el = {
   birakma: $("birakma-alani"),
   dosyaSec: $("dosya-sec"),
-  panodanAl: $("panodan-al"),
   listeBolumu: $("liste-bolumu"),
   liste: $("liste"),
   sayac: $("sayac"),
   temizle: $("listeyi-temizle"),
-  ayriSayfaSatiri: $("ayri-sayfa-satiri"),
-  ayriSayfa: $("ayri-sayfa"),
+  kalite: $("kalite"),
   uret: $("uret"),
   boyut: $("boyut"),
   durum: $("durum"),
+  // sağ tık menüsü
+  baglamMenu: $("baglam-menu"),
+  baglamYapistir: $("baglam-yapistir"),
   // ayarlar
   ayarlarAc: $("ayarlar-ac"),
   ayarlarPerde: $("ayarlar-perde"),
   ayarlarKapat: $("ayarlar-kapat"),
+  ayriSayfa: $("ayri-sayfa"),
   ciktiKlasoru: $("cikti-klasoru"),
   klasorSec: $("klasor-sec"),
   guncellemeDenetle: $("guncelleme-denetle"),
@@ -53,8 +55,13 @@ function durum(metin, sinif = "") {
   el.durum.className = `durum ${sinif}`;
 }
 
+// "3 resim UDF belge içinde oluşturulmaya hazır."
+function hazirMetni(n) {
+  return `${n} resim UDF belge içinde oluşturulmaya hazır.`;
+}
+
 function mesgulYap(evet, metin) {
-  document.querySelectorAll("main button").forEach((b) => {
+  document.querySelectorAll("main button, main select").forEach((b) => {
     b.disabled = evet;
   });
   if (!evet) el.uret.disabled = resimler.length === 0;
@@ -116,11 +123,14 @@ function boyutuTazele() {
     el.boyut.textContent = "";
     return;
   }
-  el.boyut.textContent = "Tahmini dosya boyutu: hesaplanıyor…";
+  el.boyut.textContent = "Üretilecek dosya boyutu: hesaplanıyor…";
   boyutZamanlayici = setTimeout(async () => {
     try {
-      const b = await invoke("belge_boyutu", { ayriSayfa: el.ayriSayfa.checked });
-      el.boyut.textContent = `Tahmini dosya boyutu: ${mb(b)}`;
+      const b = await invoke("belge_boyutu", {
+        ayriSayfa: el.ayriSayfa.checked,
+        kalite: el.kalite.value,
+      });
+      el.boyut.textContent = `Üretilecek dosya boyutu: ${mb(b)}`;
     } catch (e) {
       el.boyut.textContent = "";
       console.error(e);
@@ -128,17 +138,11 @@ function boyutuTazele() {
   }, 150);
 }
 
-function dugmeMetni() {
-  el.uret.textContent = resimler.length > 1 ? "Hepsini UDF'de aç" : "UDF'de aç";
-}
-
 function listeyiCiz() {
   el.liste.innerHTML = "";
   el.sayac.textContent = resimler.length;
   el.listeBolumu.hidden = resimler.length === 0;
-  el.ayriSayfaSatiri.hidden = resimler.length < 2;
   el.uret.disabled = resimler.length === 0;
-  dugmeMetni();
 
   resimler.forEach((r, i) => {
     const li = document.createElement("li");
@@ -199,10 +203,25 @@ async function yollariEkle(yollar) {
     const sonuc = await invoke("resimleri_yukle", { yollar });
     resimler = sonuc.resimler;
     if (sonuc.hatalar.length > 0) {
-      durum(`${resimler.length} resim hazır. Okunamayan: ${sonuc.hatalar.join(" · ")}`, "kotu");
+      durum(`${hazirMetni(resimler.length)} Okunamayan: ${sonuc.hatalar.join(" · ")}`, "kotu");
     } else {
-      durum(resimler.length === 1 ? "Resim hazır." : `${resimler.length} resim hazır.`);
+      durum(hazirMetni(resimler.length));
     }
+  } catch (e) {
+    durum(String(e), "kotu");
+  } finally {
+    mesgulYap(false);
+    listeyiCiz();
+    boyutuTazele();
+  }
+}
+
+// Panodaki resmi listeye ekler. Panoda resim yoksa Rust tarafı dürüstçe hata döndürür.
+async function panodanEkle() {
+  mesgulYap(true, "Panodaki resim alınıyor…");
+  try {
+    resimler = await invoke("panodan_al");
+    durum(hazirMetni(resimler.length));
   } catch (e) {
     durum(String(e), "kotu");
   } finally {
@@ -222,6 +241,7 @@ async function ac() {
   try {
     const s = await invoke("udfde_ac", {
       ayriSayfa: el.ayriSayfa.checked,
+      kalite: el.kalite.value,
       ciktiKlasoru: el.ciktiKlasoru.value,
     });
     sonUretilenYol = s.yol;
@@ -238,7 +258,7 @@ async function ac() {
   }
 }
 
-/// Durum satırına "Klasörü aç" bağlantısını ekler (kaydedilen yer ayrı bir kutuda gösterilmez).
+// Durum satırına "Klasörü aç" bağlantısını ekler (kaydedilen yer ayrı bir kutuda gösterilmez).
 function durumKlasorlu(metin, sinif) {
   durum(metin, sinif);
   if (!sonUretilenYol) return;
@@ -258,6 +278,32 @@ function durumKlasorlu(metin, sinif) {
 }
 
 // ---------------------------------------------------------------------------
+// Sağ tık menüsü — tek öğe: Yapıştır (yalnız resim)
+// ---------------------------------------------------------------------------
+
+function menuyuKapat() {
+  el.baglamMenu.hidden = true;
+}
+
+async function menuyuAc(x, y) {
+  // Menü ölçüsünü öğrenmek için önce görünür yapılır, sonra pencereye sığdırılır.
+  el.baglamMenu.hidden = false;
+  el.baglamMenu.style.left = "0px";
+  el.baglamMenu.style.top = "0px";
+  const k = el.baglamMenu.getBoundingClientRect();
+  el.baglamMenu.style.left = `${Math.max(0, Math.min(x, window.innerWidth - k.width - 6))}px`;
+  el.baglamMenu.style.top = `${Math.max(0, Math.min(y, window.innerHeight - k.height - 6))}px`;
+
+  // Panoda resim yoksa öğe soluk kalsın; kullanıcı boşuna tıklamasın.
+  el.baglamYapistir.disabled = true;
+  try {
+    el.baglamYapistir.disabled = !(await invoke("panoda_resim_var_mi"));
+  } catch {
+    el.baglamYapistir.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Olaylar
 // ---------------------------------------------------------------------------
 
@@ -270,20 +316,6 @@ el.dosyaSec.addEventListener("click", async () => {
   yollariEkle(Array.isArray(secim) ? secim : [secim]);
 });
 
-el.panodanAl.addEventListener("click", async () => {
-  mesgulYap(true, "Panodaki resim alınıyor…");
-  try {
-    resimler = await invoke("panodan_al");
-    durum("Panodaki resim eklendi.");
-  } catch (e) {
-    durum(String(e), "kotu");
-  } finally {
-    mesgulYap(false);
-    listeyiCiz();
-    boyutuTazele();
-  }
-});
-
 el.temizle.addEventListener("click", async () => {
   resimler = await invoke("listeyi_temizle");
   sonUretilenYol = null;
@@ -294,10 +326,38 @@ el.temizle.addEventListener("click", async () => {
 
 el.uret.addEventListener("click", ac);
 
+el.kalite.addEventListener("change", boyutuTazele);
+
 el.ayriSayfa.addEventListener("change", () => {
   ayarlariKaydet();
   boyutuTazele();
 });
+
+// --- yapıştırma: Ctrl+V ve sağ tık menüsü ---
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
+    e.preventDefault();
+    if (!el.ayarlarPerde.hidden) return; // ayarlar açıkken yapıştırma yok
+    panodanEkle();
+  }
+});
+
+document.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  if (!el.ayarlarPerde.hidden) return; // ayarlar penceresinde menü çıkmasın
+  menuyuAc(e.clientX, e.clientY);
+});
+
+el.baglamYapistir.addEventListener("click", () => {
+  menuyuKapat();
+  panodanEkle();
+});
+
+window.addEventListener("mousedown", (e) => {
+  if (!el.baglamMenu.contains(e.target)) menuyuKapat();
+});
+window.addEventListener("blur", menuyuKapat);
+window.addEventListener("resize", menuyuKapat);
 
 // --- ayarlar penceresi ---
 el.ayarlarAc.addEventListener("click", () => (el.ayarlarPerde.hidden = false));
@@ -306,7 +366,10 @@ el.ayarlarPerde.addEventListener("click", (e) => {
   if (e.target === el.ayarlarPerde) el.ayarlarPerde.hidden = true;
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") el.ayarlarPerde.hidden = true;
+  if (e.key === "Escape") {
+    menuyuKapat();
+    el.ayarlarPerde.hidden = true;
+  }
 });
 
 document.querySelectorAll('input[name="tema"]').forEach((r) =>
@@ -365,16 +428,17 @@ el.guncellemeKur.addEventListener("click", async () => {
   }
 });
 
-// Sürükle-bırak (Tauri v2 penceresi; tarayıcı olayları yerine webview olayı)
+// Sürükle-bırak (Tauri v2 penceresi; tarayıcı olayları yerine webview olayı).
+// Pencerenin tamamı bırakma alanıdır; vurgu da tüm pencerede yapılır.
 webview.getCurrentWebview().onDragDropEvent((olay) => {
   const t = olay.payload.type;
   if (t === "over" || t === "enter") {
-    el.birakma.classList.add("aktif");
+    document.body.classList.add("birakma-aktif");
   } else if (t === "drop") {
-    el.birakma.classList.remove("aktif");
+    document.body.classList.remove("birakma-aktif");
     yollariEkle(olay.payload.paths);
   } else {
-    el.birakma.classList.remove("aktif");
+    document.body.classList.remove("birakma-aktif");
   }
 });
 
