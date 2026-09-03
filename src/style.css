@@ -34,6 +34,9 @@
 
 * { box-sizing: border-box; }
 
+/* `hidden` özniteliği, display veren sınıflar tarafından ezilmesin. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   padding: 20px 22px 0;
@@ -124,6 +127,8 @@ button.birincil { font-size: 15px; font-weight: 600; padding: 11px 26px; }
 .liste .olcu { color: var(--alt-metin); font-size: 12.5px; }
 .liste .isaret { color: var(--iyi); font-size: 12.5px; }
 .liste .tas { color: var(--uyari); font-size: 12.5px; }
+.kart-eylem { display: flex; align-items: center; gap: 6px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+button.kucuk { padding: 6px 12px; font-size: 13px; }
 
 /* --- seçenekler --- */
 .satir { display: flex; align-items: center; gap: 12px; padding: 7px 0; flex-wrap: wrap; }

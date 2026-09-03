@@ -5,10 +5,13 @@
 //!   argümanlarıyla çağırır. Bu jetonlar olmadan UDE hiçbir şey açmadan çıkar; bu yüzden
 //!   önce `ShellExecuteW` denenir, doğrudan çalıştırmaya ancak ilişki yoksa düşülür.
 //! * Soğuk açılış 15-25 sn sürebilir.
-//! * **Tuşlar, önce belge tuvaline tıklanmadan editöre ulaşmıyor** (yalnız
-//!   `SetForegroundWindow` yetmiyor); bu yüzden `kopyala_panoya` önce sayfaya tıklar.
+//! * Taze açılan belgede tuval zaten odaklı: **tıklamaya gerek yok**, `AttachThreadInput` +
+//!   `SetForegroundWindow` kalıbı yeterli (ölçüldü).
+//! * Pencereyi **yerinde saydamlaştırmak** (WS_EX_LAYERED, alpha 0) tuş almasını engellemiyor:
+//!   kopyalama kullanıcıya hiç gösterilmeden yapılabiliyor. Pencereyi ekran dışına *taşımak*
+//!   ise UDE'nin `~/.uki/tercihler.xml` içindeki kayıtlı konumunu kalıcı bozuyor — yapılmamalı.
 //! * Pano gerçekten değişti mi `GetClipboardSequenceNumber` ile doğrulanır — değişmediyse
-//!   "kopyalandı" denmez, kılavuz kipine düşülür.
+//!   "kopyalandı" denmez.
 
 #![cfg(windows)]
 
@@ -18,29 +21,29 @@ use std::time::{Duration, Instant};
 
 use anyhow::{bail, Result};
 use windows::core::{HSTRING, PCWSTR};
-use windows::Win32::Foundation::{HWND, LPARAM, RECT, WPARAM};
+use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, WPARAM};
 use windows::Win32::System::DataExchange::GetClipboardSequenceNumber;
 use windows::Win32::System::Registry::{
     RegGetValueW, HKEY_CLASSES_ROOT, RRF_RT_REG_SZ,
 };
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, SetFocus, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT,
-    KEYBD_EVENT_FLAGS,
-    KEYEVENTF_KEYUP, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEINPUT, MOUSE_EVENT_FLAGS,
-    VIRTUAL_KEY, VK_A,
-    VK_C, VK_CONTROL,
+    SendInput, SetFocus, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
+    KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_A, VK_C, VK_CONTROL,
 };
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetForegroundWindow, GetWindowRect, GetWindowTextW,
-    GetWindowThreadProcessId, IsIconic, IsWindowVisible, SetCursorPos, SetForegroundWindow,
-    ShowWindow, SW_RESTORE, SW_SHOWNORMAL,
+    EnumWindows, GetClassNameW, GetForegroundWindow, GetWindowLongW, GetWindowTextW,
+    GetWindowThreadProcessId, IsIconic, IsWindowVisible, PostMessageW, SetForegroundWindow,
+    SetLayeredWindowAttributes, SetWindowLongW, ShowWindow, GWL_EXSTYLE, LWA_ALPHA, SW_RESTORE,
+    SW_SHOWNORMAL, WM_CLOSE, WS_EX_LAYERED,
 };
 
 /// Pencere aranırken beklenecek üst sınır. UDE soğuk açılışı 15-25 sn sürebiliyor.
 const PENCERE_BEKLEME: Duration = Duration::from_secs(30);
 const YOKLAMA_ARALIGI: Duration = Duration::from_millis(250);
+/// Gizli kopyalamada pencereyi belirir belirmez yakalamak için hızlı yoklama.
+const HIZLI_YOKLAMA: Duration = Duration::from_millis(20);
 
 /// `.udf` dosyasını UDE'de açar.
 ///
@@ -67,8 +70,8 @@ pub fn belgeyi_ac(path: &Path) -> Result<()> {
     // İlişki yok: kayıt defterinden UDE'yi bulup doğrudan çalıştır.
     let Some(exe) = ude_exe_yolu() else {
         bail!(
-            "UYAP Doküman Editörü bulunamadı. Kurulu değilse Kip B'yi (\"UDF'yi aç\") kullanın \
-             ya da dosyayı elle açın."
+            "UYAP Doküman Editörü bulunamadı. Belge üretildi ama açmak ve panoya kopyalamak \
+             için UDE'nin kurulu olması gerekiyor."
         );
     };
     std::process::Command::new(exe)
@@ -131,15 +134,40 @@ fn reg_oku(alt_anahtar: &str, deger: &str) -> Option<String> {
 // Pencere bulma
 // ---------------------------------------------------------------------------
 
+/// UDE'nin açılış görselinin pencere sınıfı. Soğuk açılışta ~140 ms'de beliriyor; kullanıcıya
+/// hiç göstermemek için bunu da görünmez yapmak gerekiyor.
+pub const SPLASH_SINIFI: &str = "JavaSplash";
+/// Java Swing ana pencere sınıfı (belge pencereleri bu sınıfta).
+pub const BELGE_SINIFI: &str = "SunAwtFrame";
+
 struct Arama {
     desen: String,
+    /// Boşsa sınıf denetlenmez.
+    sinif: String,
     bulunan: HWND,
+}
+
+fn sinif_adi(hwnd: HWND) -> String {
+    let mut buf = [0u16; 256];
+    let n = unsafe { GetClassNameW(hwnd, &mut buf) };
+    if n <= 0 {
+        String::new()
+    } else {
+        String::from_utf16_lossy(&buf[..n as usize])
+    }
 }
 
 unsafe extern "system" fn enum_geri(hwnd: HWND, lparam: LPARAM) -> windows::Win32::Foundation::BOOL {
     let arama = &mut *(lparam.0 as *mut Arama);
     if !IsWindowVisible(hwnd).as_bool() {
         return true.into();
+    }
+    if !arama.sinif.is_empty() && sinif_adi(hwnd) != arama.sinif {
+        return true.into();
+    }
+    if arama.desen.is_empty() {
+        arama.bulunan = hwnd;
+        return false.into();
     }
     let mut buf = [0u16; 512];
     let n = GetWindowTextW(hwnd, &mut buf);
@@ -153,10 +181,15 @@ unsafe extern "system" fn enum_geri(hwnd: HWND, lparam: LPARAM) -> windows::Win3
     true.into()
 }
 
-/// Başlığında `desen` geçen görünür pencereyi bulur (küçük/büyük harf duyarsız).
-pub fn pencere_bul(desen: &str) -> Option<HWND> {
+/// Sınıfı verilen ilk görünür pencere (başlığa bakmaz).
+pub fn pencere_bul_sinif(sinif: &str) -> Option<HWND> {
+    ara(String::new(), sinif.to_string())
+}
+
+fn ara(desen: String, sinif: String) -> Option<HWND> {
     let mut arama = Arama {
-        desen: desen.to_lowercase(),
+        desen,
+        sinif,
         bulunan: HWND::default(),
     };
     unsafe {
@@ -166,6 +199,37 @@ pub fn pencere_bul(desen: &str) -> Option<HWND> {
         None
     } else {
         Some(arama.bulunan)
+    }
+}
+
+/// Başlığında `desen` geçen görünür pencereyi bulur (küçük/büyük harf duyarsız).
+pub fn pencere_bul(desen: &str) -> Option<HWND> {
+    ara(desen.to_lowercase(), String::new())
+}
+
+/// Başlığında `desen` geçen **belge** penceresi (sınıf denetimli — açılış görselini seçmez).
+pub fn belge_penceresi_bul(desen: &str) -> Option<HWND> {
+    ara(desen.to_lowercase(), BELGE_SINIFI.to_string())
+}
+
+/// Pencereyi **yerinde** görünmez yapar (katmanlı pencere, saydamlık 0).
+///
+/// Neden taşımak yerine saydamlaştırma: UDE pencere konumunu `~/.uki/tercihler.xml` içindeki
+/// `win_posx` / `win_posy` alanlarına **kalıcı** yazıyor. Pencereyi ekran dışına taşımak bu
+/// değeri bozuyor; sonrasında kullanıcının normal UDE açılışı da ekran dışında oluyor
+/// (ölçülerek görüldü). Saydamlaştırma pencere geometrisine hiç dokunmadığı için güvenli.
+pub fn gorunmez_yap(hwnd: HWND) {
+    unsafe {
+        let ex = GetWindowLongW(hwnd, GWL_EXSTYLE);
+        SetWindowLongW(hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED.0 as i32);
+        let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 0, LWA_ALPHA);
+    }
+}
+
+/// Pencereye kapanma isteği gönderir (kaydedilmemiş değişiklik yoksa sessizce kapanır).
+pub fn kapat(hwnd: HWND) {
+    unsafe {
+        let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
     }
 }
 
@@ -207,27 +271,6 @@ pub fn one_getir(hwnd: HWND) -> bool {
 // Girdi gönderme
 // ---------------------------------------------------------------------------
 
-fn fare(bayrak: MOUSE_EVENT_FLAGS) -> INPUT {
-    INPUT {
-        r#type: INPUT_MOUSE,
-        Anonymous: INPUT_0 {
-            mi: MOUSEINPUT {
-                dwFlags: bayrak,
-                ..Default::default()
-            },
-        },
-    }
-}
-
-fn tikla(x: i32, y: i32) {
-    unsafe {
-        let _ = SetCursorPos(x, y);
-        sleep(Duration::from_millis(120));
-        let girdi = [fare(MOUSEEVENTF_LEFTDOWN), fare(MOUSEEVENTF_LEFTUP)];
-        SendInput(&girdi, std::mem::size_of::<INPUT>() as i32);
-    }
-}
-
 fn tus(vk: VIRTUAL_KEY, kalkti: bool) -> INPUT {
     INPUT {
         r#type: INPUT_KEYBOARD,
@@ -268,24 +311,55 @@ pub enum KopyalamaSonucu {
     PencereYok,
 }
 
-/// UDE'de açık belgeyi seçip panoya kopyalar ve panonun **gerçekten** değiştiğini doğrular.
+/// Belgeyi UDE'de **görünmeden** açıp içeriğini panoya alır ve pencereyi kapatır.
 ///
-/// `baslik_deseni` genellikle dosyanın uzantısız adıdır.
-pub fn kopyala_panoya(baslik_deseni: &str) -> KopyalamaSonucu {
-    let Some(hwnd) = pencere_bekle(baslik_deseni, PENCERE_BEKLEME) else {
-        return KopyalamaSonucu::PencereYok;
-    };
-    one_getir(hwnd);
-    sleep(Duration::from_millis(600));
+/// Nasıl çalışıyor (hepsi ölçülerek doğrulandı):
+/// 1. Dosya kabuk ilişkisiyle açılır.
+/// 2. UDE'nin pencereleri belirir belirmez (açılış görseli ~140 ms, belge penceresi ~2 sn)
+///    yerinde görünmez yapılır — kullanıcı hiçbir şey görmez, pencere konumu değişmez.
+/// 3. Pencere odaklanır; **tıklamaya gerek yok**, taze açılan belgede tuval zaten odaklıdır.
+/// 4. `Ctrl+A` + `Ctrl+C` gönderilir, panonun gerçekten değiştiği
+///    `GetClipboardSequenceNumber` ile doğrulanır.
+/// 5. Pencere kapatılır ve odak kullanıcının önceki penceresine geri verilir.
+///
+/// Dürüstlük kuralı: pano sıra numarası değişmediyse "kopyalandı" denmez.
+pub fn kopyala_gorunmeden(path: &Path) -> KopyalamaSonucu {
+    let onceki_fg = unsafe { GetForegroundWindow() };
+    // Pencere başlığı "... - ad.udf (tam yol)" biçiminde; eşleştirmeyi **dosya adı** üzerinden
+    // yapıyoruz. Tam yol kullanılamaz: `TEMP` 8.3 kısa biçimde olabiliyor
+    // (`C:\Users\ARAHIN~1\...`) ama UDE başlıkta uzun biçimi gösteriyor
+    // (`C:\Users\Çağrı Şahin\...`) — ölçüldü, eşleşme tutmuyordu.
+    //
+    // Kullanıcının benzer adlı kendi belgesini yakalamamak için çağıran taraf bu dosyaya
+    // **benzersiz** bir ad verir (bkz. `commands::panoya_kopyala`).
+    let desen = path
+        .file_name()
+        .map(|s| s.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
 
-    // Tuşlar tuvale ancak sayfaya tıklandıktan sonra ulaşıyor (ölçüldü).
-    let mut r = RECT::default();
-    if unsafe { GetWindowRect(hwnd, &mut r) }.is_ok() {
-        let x = r.left + (r.right - r.left) / 2;
-        let y = r.top + (r.bottom - r.top) * 6 / 10;
-        tikla(x, y);
-        sleep(Duration::from_millis(350));
+    if belgeyi_ac(path).is_err() {
+        return KopyalamaSonucu::PencereYok;
     }
+
+    // Açılış görseli ve belge penceresi belirir belirmez görünmez yapılır.
+    let bitis = Instant::now() + PENCERE_BEKLEME;
+    let hwnd = loop {
+        if let Some(splash) = pencere_bul_sinif(SPLASH_SINIFI) {
+            gorunmez_yap(splash);
+        }
+        if let Some(h) = belge_penceresi_bul(&desen) {
+            gorunmez_yap(h);
+            break h;
+        }
+        if Instant::now() >= bitis {
+            return KopyalamaSonucu::PencereYok;
+        }
+        sleep(HIZLI_YOKLAMA);
+    };
+
+    // Görünmez pencere de odak alabiliyor; SendInput odaklı pencereye gider.
+    one_getir(hwnd);
+    sleep(Duration::from_millis(450));
 
     let once = unsafe { GetClipboardSequenceNumber() };
     ctrl_tus(VK_A);
@@ -294,6 +368,11 @@ pub fn kopyala_panoya(baslik_deseni: &str) -> KopyalamaSonucu {
     // Java Swing'in olayı işlemesi için bekle.
     sleep(Duration::from_millis(700));
     let sonra = unsafe { GetClipboardSequenceNumber() };
+
+    kapat(hwnd);
+    if !onceki_fg.0.is_null() {
+        one_getir(onceki_fg);
+    }
 
     if once == sonra {
         KopyalamaSonucu::PanoDegismedi

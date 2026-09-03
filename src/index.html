@@ -41,63 +41,41 @@
       <h2>Seçenekler</h2>
 
       <div class="satir">
-        <label class="onay">
-          <input type="checkbox" id="ayri-sayfa" checked />
-          <span>Her resim ayrı sayfada</span>
-        </label>
-      </div>
-
-      <div class="satir">
         <span class="etiket">Görüntüleme boyutu</span>
         <div class="secim-grubu">
           <label class="secim"><input type="radio" name="boyut" value="sigdir" checked /><span>Sayfaya sığdır</span></label>
           <label class="secim"><input type="radio" name="boyut" value="yuzde100" /><span>%100 (1 px = 1 pt)</span></label>
           <label class="secim"><input type="radio" name="boyut" value="cm" /><span>Genişlik</span></label>
           <input type="number" id="boyut-cm" value="15" min="1" max="60" step="0.5" disabled />
-          <span class="alt" id="cm-birim">cm</span>
+          <span class="alt">cm</span>
         </div>
       </div>
 
       <div class="satir">
-        <span class="etiket">Çıktı klasörü</span>
+        <label class="onay">
+          <input type="checkbox" id="ayri-sayfa" checked />
+          <span>Birden fazla resmi birlikte işlerken her resim ayrı sayfada</span>
+        </label>
+      </div>
+
+      <div class="satir">
+        <span class="etiket">Kaydetme klasörü</span>
         <div class="yol-satiri">
           <input type="text" id="cikti-klasoru" readonly />
           <button id="klasor-sec" type="button" class="ikincil">Değiştir</button>
         </div>
       </div>
 
-      <div class="satir ikili">
-        <label class="onay">
-          <input type="checkbox" id="otomasyon" checked />
-          <span>Otomasyon: Ctrl+A / Ctrl+C'yi ben göndereyim</span>
-        </label>
+      <div class="satir">
         <label class="onay">
           <input type="checkbox" id="uyari-9mb" checked />
-          <span>9 MB üstünde uyar</span>
+          <span>Belge 9 MB'ı aşarsa uyar (UYAP sınırı ≈10 MB)</span>
         </label>
       </div>
     </section>
 
-    <section class="kipler">
-      <h2>Ne yapılsın?</h2>
-      <label class="kip">
-        <input type="radio" name="kip" value="A" checked />
-        <span>
-          <strong>Panoya kopyala</strong>
-          <em>Belge UDE'de açılır, içeriği panoya alınır; siz dilekçenizde sadece Ctrl+V yaparsınız.</em>
-        </span>
-      </label>
-      <label class="kip">
-        <input type="radio" name="kip" value="B" />
-        <span>
-          <strong>UDF'yi aç</strong>
-          <em>Belge kaydedilir ve açılır; kopyalama yapılmaz.</em>
-        </span>
-      </label>
-    </section>
-
     <section id="kilavuz" class="kilavuz" hidden>
-      <h3 id="kilavuz-baslik">Şimdi ne yapmalısınız</h3>
+      <h3 id="kilavuz-baslik">Bilgi</h3>
       <p id="kilavuz-metin"></p>
       <div class="dugmeler">
         <button id="kilavuz-klasor" type="button" class="ikincil">Klasörü aç</button>
@@ -109,14 +87,17 @@
       <h3>Belge büyük</h3>
       <p id="buyuk-metin"></p>
       <div class="dugmeler">
-        <button id="kucult-uret" type="button">300 DPI'lık küçük sürüm oluştur</button>
+        <button id="kucult-uret" type="button">300 DPI'lık küçük sürümle tekrar dene</button>
         <button id="buyuk-kapat" type="button" class="baglanti">Böyle kalsın</button>
       </div>
     </section>
 
-    <!-- Ana eylem en sonda ve alta yapışık: liste uzasa da hep görünür kalır. -->
+    <!-- Alta yapışık: birden fazla resim varken toplu işlemler, her zaman durum satırı. -->
     <div class="eylem">
-      <button id="uret" type="button" class="birincil" disabled>UDF oluştur</button>
+      <div id="toplu" class="dugmeler" hidden>
+        <button id="hepsini-kopyala" type="button" class="birincil">Hepsini kopyala</button>
+        <button id="hepsini-ac" type="button" class="ikincil">Hepsini UDF'de aç</button>
+      </div>
       <p id="durum" class="durum" role="status" aria-live="polite"></p>
     </div>
   </main>

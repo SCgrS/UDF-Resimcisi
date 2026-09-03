@@ -21,9 +21,10 @@ const el = {
   boyutCm: $("boyut-cm"),
   ciktiKlasoru: $("cikti-klasoru"),
   klasorSec: $("klasor-sec"),
-  otomasyon: $("otomasyon"),
   uyari9mb: $("uyari-9mb"),
-  uret: $("uret"),
+  toplu: $("toplu"),
+  hepsiniKopyala: $("hepsini-kopyala"),
+  hepsiniAc: $("hepsini-ac"),
   durum: $("durum"),
   kilavuz: $("kilavuz"),
   kilavuzBaslik: $("kilavuz-baslik"),
@@ -39,6 +40,8 @@ const el = {
 let resimler = [];
 let sonUretilenYol = null;
 let mesgul = false;
+/// Küçültme teklifi kabul edilirse aynı işi tekrarlamak için son isteğin özeti.
+let sonIslem = null;
 
 // ---------------------------------------------------------------------------
 // Yardımcılar
@@ -63,15 +66,20 @@ function boyutTercihi() {
   return { tur: secili };
 }
 
-function seciliKip() {
-  return document.querySelector('input[name="kip"]:checked').value;
+function istekKur(kucult) {
+  return {
+    ayri_sayfa: el.ayriSayfa.checked,
+    boyut: boyutTercihi(),
+    cikti_klasoru: el.ciktiKlasoru.value,
+    kucult,
+  };
 }
 
 function mesgulYap(evet, metin) {
   mesgul = evet;
-  el.uret.disabled = evet || resimler.length === 0;
-  el.dosyaSec.disabled = evet;
-  el.panodanAl.disabled = evet;
+  document.querySelectorAll("button").forEach((b) => {
+    if (b.dataset.hepDurmasin !== "1") b.disabled = evet;
+  });
   if (metin) durum(metin);
 }
 
@@ -82,8 +90,6 @@ function mesgulYap(evet, metin) {
 async function ayarlariYukle() {
   try {
     const a = await invoke("ayarlari_getir");
-    document.querySelector(`input[name="kip"][value="${a.kip}"]`).checked = true;
-    el.otomasyon.checked = a.otomasyon;
     el.ayriSayfa.checked = a.ayri_sayfa;
     el.uyari9mb.checked = a.uyari_9mb;
     el.ciktiKlasoru.value = a.cikti_klasoru;
@@ -105,13 +111,10 @@ function ayarlariKaydet() {
     try {
       await invoke("ayarlari_kaydet", {
         ayarlar: {
-          kip: seciliKip(),
-          otomasyon: el.otomasyon.checked,
           ayri_sayfa: el.ayriSayfa.checked,
           boyut: boyutTercihi(),
           cikti_klasoru: el.ciktiKlasoru.value,
           uyari_9mb: el.uyari9mb.checked,
-          islem_sonrasi_kucult: false,
         },
       });
     } catch (e) {
@@ -124,11 +127,20 @@ function ayarlariKaydet() {
 // Resim listesi
 // ---------------------------------------------------------------------------
 
+function dugme(metin, sinif, isle) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = sinif;
+  b.textContent = metin;
+  b.addEventListener("click", isle);
+  return b;
+}
+
 async function listeyiCiz() {
   el.liste.innerHTML = "";
   el.sayac.textContent = resimler.length;
   el.listeBolumu.hidden = resimler.length === 0;
-  el.uret.disabled = mesgul || resimler.length === 0;
+  el.toplu.hidden = resimler.length < 2;
 
   let olculer = [];
   try {
@@ -181,15 +193,17 @@ async function listeyiCiz() {
 
     li.appendChild(bilgi);
 
-    const sil = document.createElement("button");
-    sil.type = "button";
-    sil.className = "baglanti";
-    sil.textContent = "Kaldır";
-    sil.addEventListener("click", async () => {
-      resimler = await invoke("resmi_cikar", { indeks: i });
-      listeyiCiz();
-    });
-    li.appendChild(sil);
+    const eylemler = document.createElement("div");
+    eylemler.className = "kart-eylem";
+    eylemler.appendChild(dugme("Panoya kopyala", "birincil kucuk", () => kopyala([i])));
+    eylemler.appendChild(dugme("UDF'de aç", "ikincil kucuk", () => ac([i])));
+    eylemler.appendChild(
+      dugme("Kaldır", "baglanti", async () => {
+        resimler = await invoke("resmi_cikar", { indeks: i });
+        listeyiCiz();
+      })
+    );
+    li.appendChild(eylemler);
 
     el.liste.appendChild(li);
   });
@@ -205,7 +219,7 @@ async function yollariEkle(yollar) {
       // Okunamayan dosya sessizce yutulmaz: adıyla söylenir.
       durum(`${resimler.length} resim hazır. Okunamayan: ${sonuc.hatalar.join(" · ")}`, "kotu");
     } else {
-      durum(`${resimler.length} resim hazır.`);
+      durum(resimler.length === 1 ? "Resim hazır." : `${resimler.length} resim hazır.`);
     }
   } catch (e) {
     durum(String(e), "kotu");
@@ -216,67 +230,62 @@ async function yollariEkle(yollar) {
 }
 
 // ---------------------------------------------------------------------------
-// Üretim
+// İki eylem: panoya kopyala / UDF'de aç
 // ---------------------------------------------------------------------------
 
-async function uret(kucult = false) {
-  if (resimler.length === 0) return;
+/// Panoya kopyala: UDE arka planda, hiç görünmeden açılıp kapanır.
+async function kopyala(indeksler, kucult = false) {
   el.buyukUyari.hidden = true;
   el.kilavuz.hidden = true;
-  mesgulYap(true, kucult ? "Küçültülmüş belge hazırlanıyor…" : "UDF hazırlanıyor…");
+  sonIslem = { tur: "kopyala", indeksler };
+  mesgulYap(true, "Panoya alınıyor… (UYAP editörü arka planda çalışıyor)");
 
-  let sonuc;
   try {
-    sonuc = await invoke("udf_uret", {
-      istek: {
-        ayri_sayfa: el.ayriSayfa.checked,
-        boyut: boyutTercihi(),
-        cikti_klasoru: el.ciktiKlasoru.value,
-        kucult,
-      },
+    const k = await invoke("panoya_kopyala", {
+      indeksler,
+      istek: istekKur(kucult),
     });
-  } catch (e) {
-    mesgulYap(false);
-    durum(String(e), "kotu");
-    return;
-  }
-
-  sonUretilenYol = sonuc.yol;
-
-  if (sonuc.buyuk && el.uyari9mb.checked && !kucult) {
-    el.buyukMetin.textContent =
-      `Bu belge ${mb(sonuc.boyut_bayt)}. UYAP 10 MB üstü UDF kabul etmiyor. ` +
-      `Küçültülmüş sürüm oluşturmak ister misiniz? (300 DPI, ≈2200 px uzun kenar)`;
-    el.buyukUyari.hidden = false;
-  }
-
-  const kip = seciliKip();
-  try {
-    if (kip === "A") {
-      durum("Belge UDE'de açılıyor, birkaç saniye…");
-      const k = await invoke("kip_a_calistir", {
-        yol: sonuc.yol,
-        otomasyon: el.otomasyon.checked,
-      });
-      if (k.durum === "panoda") {
-        durum(k.mesaj, "iyi");
-        toast("Resim panoda", k.mesaj);
-      } else {
-        durum(`Belge hazır: ${mb(sonuc.boyut_bayt)}`);
-        kilavuzGoster("Şimdi ne yapmalısınız", k.mesaj);
-      }
+    if (k.durum === "panoda") {
+      durum(`${k.mesaj} (${mb(k.boyut_bayt)})`, "iyi");
+      toast("Resim panoda", "Dilekçenizde Ctrl+V yapın.");
+      if (k.buyuk && el.uyari9mb.checked && !kucult) buyukUyar(k.boyut_bayt);
     } else {
-      const k = await invoke("kip_b_calistir", { yol: sonuc.yol });
-      durum(`Belge hazır (${mb(sonuc.boyut_bayt)}) ve açıldı.`, "iyi");
-      kilavuzGoster("Belge kaydedildi", k.mesaj);
-      toast("UDF oluşturuldu", sonuc.yol);
+      durum("Panoya kopyalanamadı.", "kotu");
+      kilavuzGoster("Kopyalama tamamlanamadı", k.mesaj);
     }
   } catch (e) {
     durum(String(e), "kotu");
-    kilavuzGoster("Belge oluşturuldu ama açılamadı", `${e}\nDosya: ${sonuc.yol}`);
   } finally {
     mesgulYap(false);
   }
+}
+
+/// UDF'de aç: belge kaydetme klasörüne yazılır ve editörde açılır.
+async function ac(indeksler, kucult = false) {
+  el.buyukUyari.hidden = true;
+  el.kilavuz.hidden = true;
+  sonIslem = { tur: "ac", indeksler };
+  mesgulYap(true, "Belge hazırlanıyor ve açılıyor…");
+
+  try {
+    const s = await invoke("udfde_ac", { indeksler, istek: istekKur(kucult) });
+    sonUretilenYol = s.yol;
+    durum(`Belge hazır (${mb(s.boyut_bayt)}) ve açıldı.`, "iyi");
+    kilavuzGoster("Belge kaydedildi", s.yol);
+    if (s.buyuk && el.uyari9mb.checked && !kucult) buyukUyar(s.boyut_bayt);
+  } catch (e) {
+    durum(String(e), "kotu");
+    kilavuzGoster("Açılamadı", String(e));
+  } finally {
+    mesgulYap(false);
+  }
+}
+
+function buyukUyar(bayt) {
+  el.buyukMetin.textContent =
+    `Bu belge ${mb(bayt)}. UYAP 10 MB üstü UDF kabul etmiyor. ` +
+    `300 DPI'lık (≈2200 px uzun kenar) küçük sürümle tekrar denemek ister misiniz?`;
+  el.buyukUyari.hidden = false;
 }
 
 function kilavuzGoster(baslik, metin) {
@@ -335,8 +344,14 @@ el.klasorSec.addEventListener("click", async () => {
   }
 });
 
-el.uret.addEventListener("click", () => uret(false));
-el.kucultUret.addEventListener("click", () => uret(true));
+el.hepsiniKopyala.addEventListener("click", () => kopyala([]));
+el.hepsiniAc.addEventListener("click", () => ac([]));
+
+el.kucultUret.addEventListener("click", () => {
+  if (!sonIslem) return;
+  if (sonIslem.tur === "kopyala") kopyala(sonIslem.indeksler, true);
+  else ac(sonIslem.indeksler, true);
+});
 el.buyukKapat.addEventListener("click", () => (el.buyukUyari.hidden = true));
 el.kilavuzKapat.addEventListener("click", () => (el.kilavuz.hidden = true));
 el.kilavuzKlasor.addEventListener("click", async () => {
@@ -362,12 +377,7 @@ el.boyutCm.addEventListener("input", () => {
   ayarlariKaydet();
   listeyiCiz();
 });
-[el.ayriSayfa, el.otomasyon, el.uyari9mb].forEach((c) =>
-  c.addEventListener("change", ayarlariKaydet)
-);
-document.querySelectorAll('input[name="kip"]').forEach((r) =>
-  r.addEventListener("change", ayarlariKaydet)
-);
+[el.ayriSayfa, el.uyari9mb].forEach((c) => c.addEventListener("change", ayarlariKaydet));
 
 // Sürükle-bırak (Tauri v2 penceresi; tarayıcı olayları yerine webview olayı)
 webview.getCurrentWebview().onDragDropEvent((olay) => {

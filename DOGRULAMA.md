@@ -72,6 +72,42 @@ Hepsi gerçek uygulama penceresi kullanılarak, gerçek UDE ile yapıldı.
 | Explorer'dan pencereye **gerçek sürükle-bırak** (`SendInput` ile OLE sürüklemesi) | Dosya listeye düştü, ölçüsü ve "orijinal baytlar korunuyor" işareti doğru göründü |
 | Ayarların kalıcılığı | Uygulama kapatılıp yeniden açıldığında kip/klasör/seçenekler korunuyor |
 
+## Görünmeden kopyalama (1.1 sürümü) — ölçümler
+
+1.0'da "Panoya kopyala" UDE penceresini kullanıcının gözü önünde açıyordu. 1.1'de bütün işlem
+görünmez yapılıyor. Yol açan ölçümler:
+
+| Soru | Ölçüm |
+|---|---|
+| Tuşların editöre ulaşması için tuvale tıklamak şart mı? | **Hayır.** Taze açılan belgede tuval zaten odaklı; `AttachThreadInput` + `SetForegroundWindow` + `SetFocus` sonrası `Ctrl+A`/`Ctrl+C` çalışıyor (pano sıra no 377 → 384). 1.0'daki tıklama gereksizmiş. |
+| Pencere görünmezken tuş alır mı? | **Alır.** Ekran dışına taşınmış pencerede de (384 → 391), yerinde saydamlaştırılmış pencerede de (407 → 412) kopyalama çalışıyor. |
+| UDE açılışında ekranda ne beliriyor? | İki pencere: `JavaSplash` sınıfı açılış görseli (**~140 ms**) ve `SunAwtFrame` sınıfı belge penceresi (**~2 sn**). İkisi de sınıfından tanınıp görünmez yapılabiliyor. |
+| UDE zaten çalışırken yeni belge kaç saniyede açılıyor? | **2,0 sn** (soğuk açılış da bu makinede ~2 sn sürdü; önbelleği soğuk makinede daha uzun olabilir). |
+| Görünmez kopyalamanın toplam süresi | **≈3,4 sn** (dosya yazma + UDE açılışı + kopyalama + kapatma). |
+| Panodaki içerik gerçekten tam çözünürlük mü? | **Evet.** Görünmeden kopyalanan içerik yeni bir UDE belgesine yapıştırılıp kaydedildi: **3000 × 2000 px**, 105.925 bayt PNG. |
+
+### Tuzak: pencereyi taşımak UDE'nin ayarını kalıcı bozuyor
+
+İlk denemede pencere `-32000,-32000` konumuna taşınıyordu. UDE kapanırken pencere konumunu
+`~/.uki/tercihler.xml` içindeki `win_posx` / `win_posy` alanlarına **kalıcı** yazıyor; sonuçta
+kullanıcının kendi UDE açılışı da ekran dışında oluyordu (ölçülerek görüldü, dosya elle onarıldı).
+
+Bu yüzden 1.1'de pencere **taşınmıyor**; yerinde saydamlaştırılıyor
+(`WS_EX_LAYERED` + `SetLayeredWindowAttributes(alpha = 0)`). Geometri hiç değişmediği için
+kayıtlı konum bozulmuyor — test sonrası `win_posx`/`win_posy` değerlerinin değişmediği doğrulandı.
+
+### Tuzak: pencereyi tam yolla aramak tutmuyor
+
+Doğru pencereyi bulmak için başlıktaki tam yolla eşleştirmek denendi ve **başarısız oldu**:
+`TEMP` ortam değişkeni 8.3 kısa biçimde olabiliyor
+(`C:\Users\ARAHIN~1\AppData\Local\Temp\...`) ama UDE pencere başlığında uzun biçimi gösteriyor
+(`C:\Users\Çağrı Şahin\AppData\Local\Temp\...`). Sonuç: pencere bulunamıyor, kopyalama
+"başarısız" diyor ve geride görünür bir UDE penceresi kalıyordu.
+
+Çözüm: geçici belgeye **benzersiz** bir ad veriliyor
+(`udfres-<yıl><ay><gün>-<saat><dakika><saniye>-<ms>.udf`) ve eşleştirme dosya adı üzerinden
+yapılıyor. Ad benzersiz olduğu için kullanıcının açık olan kendi belgesiyle karışma riski de yok.
+
 ## Biçim hakkında ek bulgular (kodda karşılığı var)
 
 1. **UDE base64'ü MIME satır sonlarıyla yazar** (76 karakterde bir `\n`). Üretirken satırsız

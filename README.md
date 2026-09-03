@@ -22,8 +22,8 @@ Kurulum istemiyorsanız:
 (kurumsal dağıtım için) ·
 [tüm sürümler](https://github.com/SCgrS/udf-resimcisi/releases)
 
-Windows 10/11 x64. Kip A'nın (panoya kopyalama) çalışması için UYAP Doküman Editörü'nün kurulu
-olması gerekir; belge üretimi ve Kip B UDE olmadan da çalışır.
+Windows 10/11 x64. Her iki düğme de UYAP Doküman Editörü'nün kurulu olmasını gerektirir:
+panoya kopyalama editörü perde arkasında kullanır, "UDF'de aç" da belgeyi onunla açar.
 
 ## Sorun ve ölçüm
 
@@ -48,14 +48,20 @@ Bütün ölçümlerin ayrıntısı: [DOGRULAMA.md](DOGRULAMA.md).
 
 ## Ne yapar
 
-1. Resimleri pencereye sürükleyin (veya "Dosya seç" / "Panodaki resmi al").
-2. `.udf` belgesi 1 saniyenin altında üretilir ve çıktı klasörüne kaydedilir.
-3. Seçtiğiniz kipe göre:
-   - **Kip A — Panoya kopyala** (varsayılan): belge UDE'de açılır, içeriği panoya alınır, size
-     "Ctrl+V yapın" denir. Panonun gerçekten değiştiği `GetClipboardSequenceNumber` ile
-     doğrulanır; doğrulanamazsa size dürüstçe "Ctrl+A → Ctrl+C yapın" kılavuzu gösterilir.
-     **Sessiz başarısızlık yoktur.**
-   - **Kip B — UDF'yi aç**: belge kaydedilir ve açılır, kopyalama yapılmaz.
+Resimleri pencereye sürükleyin (veya "Dosya seç" / "Panodaki resmi al"). Her resmin yanında iki
+düğme çıkar; birden fazla resim varsa altta "Hepsini kopyala" ve "Hepsini UDF'de aç" da olur.
+
+**Panoya kopyala** — resim doğrudan panoya alınır, siz dilekçenizde **Ctrl+V** yaparsınız.
+Perde arkasında UYAP editörü kullanılır (pano biçimini yalnızca o üretebiliyor) ama **hiçbir
+pencere görmezsiniz**: editör penceresi belirdiği anda görünmez yapılır, kopyalama biter bitmez
+kapatılır. Tipik süre ≈3 saniye. Panonun gerçekten değiştiği `GetClipboardSequenceNumber` ile
+doğrulanır; doğrulanamazsa "kopyalandı" denmez, ne yapmanız gerektiği yazılır.
+**Sessiz başarısızlık yoktur.**
+
+**UDF'de aç** — belge kaydetme klasörüne yazılır ve editörde açılır.
+
+Panoya kopyalarken üretilen belge geçici klasöre yazılıp hemen silinir; kaydetme klasörünüz
+yalnızca "UDF'de aç" dediğinizde dosya alır.
 
 Üretim hızlıdır: 3000×2000 PNG için 66 ms, 12 MP fotoğraf için 172 ms (süreç başlatma, dosya
 okuma ve yazma dâhil).
@@ -68,11 +74,9 @@ Telefon fotoğraflarında EXIF `Orientation` okunur; döndürme gerekiyorsa kay�
 
 | Ayar | Varsayılan |
 |---|---|
-| Kip | A (Panoya kopyala) |
-| Otomasyon (Ctrl+A / Ctrl+C gönder) | Açık |
-| Her resim ayrı sayfada | Açık |
 | Görüntüleme boyutu | Sayfaya sığdır |
-| Çıktı klasörü | `Belgelerim\UDF Resimcisi` |
+| Birden fazla resmi birlikte işlerken her resim ayrı sayfada | Açık |
+| Kaydetme klasörü | `Belgelerim\UDF Resimcisi` |
 | 9 MB üstü uyarısı | Açık |
 
 ## 10 MB sınırı

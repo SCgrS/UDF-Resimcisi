@@ -6,17 +6,6 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-/// Çalışma kipi (§4.3).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Kip {
-    /// Panoya kopyala (UDE üzerinden).
-    #[serde(rename = "A")]
-    PanoyaKopyala,
-    /// UDF'yi aç.
-    #[serde(rename = "B")]
-    UdfyiAc,
-}
-
 /// Görüntüleme boyutu tercihi.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "tur", content = "deger")]
@@ -32,31 +21,23 @@ pub enum BoyutTercihi {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Ayarlar {
-    pub kip: Kip,
-    /// Ctrl+A / Ctrl+C otomatik gönderilsin mi.
-    pub otomasyon: bool,
-    /// Her resim ayrı sayfada.
+    /// Birden fazla resim tek belgeye girdiğinde her resim ayrı sayfada olsun mu.
     pub ayri_sayfa: bool,
     pub boyut: BoyutTercihi,
     pub cikti_klasoru: String,
     /// 9 MB üstü çıktıda uyar.
     pub uyari_9mb: bool,
-    /// İşlem sonrası pencereyi küçült.
-    pub islem_sonrasi_kucult: bool,
 }
 
 impl Default for Ayarlar {
     fn default() -> Self {
         Self {
-            kip: Kip::PanoyaKopyala,
-            otomasyon: true,
             ayri_sayfa: true,
             boyut: BoyutTercihi::SayfayaSigdir,
             cikti_klasoru: varsayilan_cikti_klasoru()
                 .to_string_lossy()
                 .to_string(),
             uyari_9mb: true,
-            islem_sonrasi_kucult: false,
         }
     }
 }
@@ -102,33 +83,32 @@ mod tests {
     #[test]
     fn varsayilanlar_spec_ile_uyusuyor() {
         let a = Ayarlar::default();
-        assert_eq!(a.kip, Kip::PanoyaKopyala);
-        assert!(a.otomasyon);
         assert!(a.ayri_sayfa);
         assert_eq!(a.boyut, BoyutTercihi::SayfayaSigdir);
         assert!(a.uyari_9mb);
-        assert!(!a.islem_sonrasi_kucult);
         assert!(a.cikti_klasoru.ends_with("UDF Resimcisi"));
     }
 
     #[test]
     fn json_gidis_donus() {
         let a = Ayarlar {
-            kip: Kip::UdfyiAc,
             boyut: BoyutTercihi::GenislikCm(12.5),
             ..Default::default()
         };
         let s = serde_json::to_string(&a).unwrap();
-        assert!(s.contains("\"B\""), "{s}");
         assert!(s.contains("\"cm\""), "{s}");
         let geri: Ayarlar = serde_json::from_str(&s).unwrap();
-        assert_eq!(geri.kip, Kip::UdfyiAc);
         assert_eq!(geri.boyut, BoyutTercihi::GenislikCm(12.5));
     }
 
     #[test]
-    fn bozuk_json_varsayilana_duser() {
-        let a: Ayarlar = serde_json::from_str("{\"kip\":\"A\"}").unwrap();
-        assert!(a.otomasyon, "eksik alanlar varsayılanla dolmalı");
+    fn eski_ayar_dosyasi_okunabiliyor() {
+        // 1.0 sürümünde kip/otomasyon alanları vardı; kaldırıldılar ama eski dosya
+        // hâlâ okunmalı ve eksik alanlar varsayılanla dolmalı.
+        let a: Ayarlar =
+            serde_json::from_str("{\"kip\":\"A\",\"otomasyon\":true,\"ayri_sayfa\":false}")
+                .unwrap();
+        assert!(!a.ayri_sayfa);
+        assert!(a.uyari_9mb, "eksik alanlar varsayılanla dolmalı");
     }
 }

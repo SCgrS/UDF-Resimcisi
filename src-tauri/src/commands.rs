@@ -58,9 +58,12 @@ pub struct UretimSonucu {
 
 #[derive(Debug, Serialize)]
 pub struct KipSonucu {
-    /// "panoda" | "pano-degismedi" | "pencere-yok" | "acildi" | "otomasyon-kapali"
+    /// "panoda" | "pano-degismedi" | "pencere-yok"
     pub durum: String,
     pub mesaj: String,
+    pub boyut_bayt: u64,
+    /// Panoya giden içerik 9 MB'ı aşıyorsa arayüz küçültme teklifi gösterir.
+    pub buyuk: bool,
 }
 
 fn hata<E: std::fmt::Display>(e: E) -> String {
@@ -266,12 +269,12 @@ pub fn benzersiz_yol(klasor: &Path, govde: &str) -> PathBuf {
 
 /// Dosya adı gövdesi: tek resimde kaynak adı, çoklu resimde ilk dosyanın adı;
 /// pano kaynaklıysa tarih damgası.
-fn govde_sec(liste: &[Kayit]) -> String {
+fn govde_sec_dilim(secili: &[&Kayit]) -> String {
     // Panodan gelen resmin kaynak adı yok: tarih damgası kullan.
-    if liste[0].ad.starts_with("pano-") {
+    if secili[0].ad.starts_with("pano-") {
         return format!("resimler-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
     }
-    Path::new(&liste[0].ad)
+    Path::new(&secili[0].ad)
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "resim".to_string())
@@ -294,46 +297,75 @@ pub struct UretimIstegi {
     pub kucult: bool,
 }
 
-#[tauri::command]
-pub async fn udf_uret(
-    istek: UretimIstegi,
-    oturum: State<'_, Oturum>,
-) -> Result<UretimSonucu, String> {
+/// Seçilen resimlerden `.udf` baytlarını ve dosya adı gövdesini üretir.
+fn belge_uret(
+    indeksler: &[usize],
+    istek: &UretimIstegi,
+    oturum: &State<'_, Oturum>,
+) -> Result<(Vec<u8>, String), String> {
     let (specler, govde) = {
         let liste = oturum.resimler.lock().map_err(hata)?;
         if liste.is_empty() {
             return Err("Önce bir resim ekleyin.".to_string());
         }
+        let secili: Vec<&Kayit> = if indeksler.is_empty() {
+            liste.iter().collect()
+        } else {
+            indeksler
+                .iter()
+                .filter_map(|&i| liste.get(i))
+                .collect()
+        };
+        if secili.is_empty() {
+            return Err("Seçilen resim bulunamadı.".to_string());
+        }
         (
-            liste.iter().map(|k| k.resim.spec.clone()).collect::<Vec<_>>(),
-            govde_sec(&liste),
+            secili.iter().map(|k| k.resim.spec.clone()).collect::<Vec<_>>(),
+            govde_sec_dilim(&secili),
         )
     };
 
-    let sonuc = tauri::async_runtime::spawn_blocking(move || -> Result<UretimSonucu, String> {
-        let specler = if istek.kucult {
-            specler
-                .iter()
-                .map(|s| image_io::kucult(s, image_io::HEDEF_UZUN_KENAR_300DPI))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(hata)?
-        } else {
-            specler
-        };
+    let specler = if istek.kucult {
+        specler
+            .iter()
+            .map(|s| image_io::kucult(s, image_io::HEDEF_UZUN_KENAR_300DPI))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(hata)?
+    } else {
+        specler
+    };
 
-        let opts = BuildOptions {
-            separate_pages: istek.ayri_sayfa,
-            sizing: sizing_of(istek.boyut),
-            page: udf::model::PageFormat::default(),
-        };
-        let bytes = udf::build_udf(&specler, &opts).map_err(hata)?;
+    let opts = BuildOptions {
+        separate_pages: istek.ayri_sayfa,
+        sizing: sizing_of(istek.boyut),
+        page: udf::model::PageFormat::default(),
+    };
+    let bytes = udf::build_udf(&specler, &opts).map_err(hata)?;
+    Ok((bytes, temiz_dosya_adi(&govde)))
+}
 
-        let klasor = PathBuf::from(&istek.cikti_klasoru);
+/// **UDF'de aç**: belgeyi çıktı klasörüne yazar ve UDE'de görünür şekilde açar.
+#[tauri::command]
+pub async fn udfde_ac(
+    indeksler: Vec<usize>,
+    istek: UretimIstegi,
+    oturum: State<'_, Oturum>,
+) -> Result<UretimSonucu, String> {
+    let (bytes, govde) = belge_uret(&indeksler, &istek, &oturum)?;
+    let klasor = PathBuf::from(&istek.cikti_klasoru);
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<UretimSonucu, String> {
         std::fs::create_dir_all(&klasor)
             .map_err(|e| format!("Çıktı klasörü oluşturulamadı ({}): {e}", klasor.display()))?;
-        let yol = benzersiz_yol(&klasor, &temiz_dosya_adi(&govde));
+        let yol = benzersiz_yol(&klasor, &govde);
         std::fs::write(&yol, &bytes)
             .map_err(|e| format!("Dosya yazılamadı ({}): {e}", yol.display()))?;
+
+        #[cfg(windows)]
+        if let Err(e) = crate::ude::belgeyi_ac(&yol) {
+            crate::ude::klasorde_goster(&yol);
+            return Err(format!("{e}\nDosya: {}", yol.display()));
+        }
 
         let boyut = bytes.len() as u64;
         Ok(UretimSonucu {
@@ -343,76 +375,74 @@ pub async fn udf_uret(
         })
     })
     .await
-    .map_err(hata)??;
-
-    Ok(sonuc)
-}
-
-// ---------------------------------------------------------------------------
-// Kip A / Kip B
-// ---------------------------------------------------------------------------
-
-#[tauri::command]
-pub async fn kip_a_calistir(yol: String, otomasyon: bool) -> Result<KipSonucu, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let p = PathBuf::from(&yol);
-        #[cfg(windows)]
-        {
-            if let Err(e) = crate::ude::belgeyi_ac(&p) {
-                crate::ude::klasorde_goster(&p);
-                return Err(e.to_string());
-            }
-            if !otomasyon {
-                return Ok(KipSonucu {
-                    durum: "otomasyon-kapali".into(),
-                    mesaj: "Açılan pencerede Ctrl+A → Ctrl+C yapın, sonra dilekçenizde Ctrl+V."
-                        .into(),
-                });
-            }
-            let desen = p
-                .file_stem()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_default();
-            match crate::ude::kopyala_panoya(&desen) {
-                crate::ude::KopyalamaSonucu::Panoda => Ok(KipSonucu {
-                    durum: "panoda".into(),
-                    mesaj: "Kaliteli resim panoda — UDF'nize Ctrl+V yapın.".into(),
-                }),
-                crate::ude::KopyalamaSonucu::PanoDegismedi => Ok(KipSonucu {
-                    durum: "pano-degismedi".into(),
-                    mesaj: "Kopyalama doğrulanamadı. Açılan pencerede Ctrl+A → Ctrl+C yapın, \
-                            sonra dilekçenizde Ctrl+V."
-                        .into(),
-                }),
-                crate::ude::KopyalamaSonucu::PencereYok => Ok(KipSonucu {
-                    durum: "pencere-yok".into(),
-                    mesaj: "UDE penceresi 30 sn içinde bulunamadı — açılınca Ctrl+A, Ctrl+C yapın."
-                        .into(),
-                }),
-            }
-        }
-        #[cfg(not(windows))]
-        {
-            let _ = otomasyon;
-            Err("Kip A yalnızca Windows'ta çalışır.".to_string())
-        }
-    })
-    .await
     .map_err(hata)?
 }
 
+/// **Panoya kopyala**: belgeyi geçici klasöre yazar, UDE'de *görünmeden* açıp içeriğini panoya
+/// alır ve pencereyi kapatır. Kullanıcı hiçbir pencere görmez.
 #[tauri::command]
-pub async fn kip_b_calistir(yol: String) -> Result<KipSonucu, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let p = PathBuf::from(&yol);
+pub async fn panoya_kopyala(
+    indeksler: Vec<usize>,
+    istek: UretimIstegi,
+    oturum: State<'_, Oturum>,
+) -> Result<KipSonucu, String> {
+    let (bytes, _govde) = belge_uret(&indeksler, &istek, &oturum)?;
+    let boyut = bytes.len() as u64;
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<KipSonucu, String> {
+        // Geçici klasör: kopyalama için üretilen belge kullanıcının çıktı klasörünü kirletmesin.
+        let klasor = std::env::temp_dir().join("UDF Resimcisi");
+        std::fs::create_dir_all(&klasor)
+            .map_err(|e| format!("Geçici klasör oluşturulamadı: {e}"))?;
+        // Ad **benzersiz** olmalı: UDE penceresi bu adla bulunuyor ve kullanıcının açık olan
+        // kendi belgesiyle karışması hâlinde onun penceresinde işlem yapılırdı.
+        let yol = klasor.join(format!(
+            "udfres-{}.udf",
+            chrono::Local::now().format("%Y%m%d-%H%M%S-%3f")
+        ));
+        std::fs::write(&yol, &bytes)
+            .map_err(|e| format!("Geçici dosya yazılamadı: {e}"))?;
+
         #[cfg(windows)]
-        {
-            crate::ude::belgeyi_ac(&p).map_err(|e| e.to_string())?;
-        }
-        Ok(KipSonucu {
-            durum: "acildi".into(),
-            mesaj: format!("Belge açıldı ve şuraya kaydedildi: {}", p.display()),
-        })
+        let sonuc = {
+            let s = crate::ude::kopyala_gorunmeden(&yol);
+            let _ = std::fs::remove_file(&yol);
+            match s {
+                crate::ude::KopyalamaSonucu::Panoda => KipSonucu {
+                    durum: "panoda".into(),
+                    mesaj: "Resim panoda — dilekçenizde Ctrl+V yapın.".into(),
+                    boyut_bayt: boyut,
+                    buyuk: boyut > UYARI_ESIGI,
+                },
+                crate::ude::KopyalamaSonucu::PanoDegismedi => KipSonucu {
+                    durum: "pano-degismedi".into(),
+                    mesaj: "Kopyalama doğrulanamadı — pano değişmedi. \"UDF'de aç\" ile açıp \
+                            Ctrl+A → Ctrl+C yapabilirsiniz."
+                        .into(),
+                    boyut_bayt: boyut,
+                    buyuk: false,
+                },
+                crate::ude::KopyalamaSonucu::PencereYok => KipSonucu {
+                    durum: "pencere-yok".into(),
+                    mesaj: "UYAP Doküman Editörü 30 sn içinde yanıt vermedi. Kurulu olduğundan \
+                            emin olun; \"UDF'de aç\" seçeneği UDE olmadan da dosyayı üretir."
+                        .into(),
+                    boyut_bayt: boyut,
+                    buyuk: false,
+                },
+            }
+        };
+        #[cfg(not(windows))]
+        let sonuc = {
+            let _ = yol;
+            KipSonucu {
+                durum: "pencere-yok".into(),
+                mesaj: "Panoya kopyalama yalnızca Windows'ta çalışır.".into(),
+                boyut_bayt: boyut,
+                buyuk: false,
+            }
+        };
+        Ok(sonuc)
     })
     .await
     .map_err(hata)?

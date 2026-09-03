@@ -27,9 +27,8 @@ pub fn run() {
             commands::listeyi_temizle,
             commands::liste_getir,
             commands::olculeri_hesapla,
-            commands::udf_uret,
-            commands::kip_a_calistir,
-            commands::kip_b_calistir,
+            commands::udfde_ac,
+            commands::panoya_kopyala,
             commands::klasorde_goster,
         ])
         .run(tauri::generate_context!())
