@@ -53,7 +53,7 @@ Bütün ölçümlerin ayrıntısı: [DOGRULAMA.md](DOGRULAMA.md).
 2. **UDF'de aç** düğmesine basın.
 
 Belge kaydetme klasörüne yazılır ve (editör kuruluysa) açılır. Düğmenin altında, resimler
-eklendikçe güncellenen bir **üretilecek dosya boyutu** yazar.
+eklendikçe güncellenen bir **üretilecek dosya boyutu** yazar; onun altında da kaç resmin belgeye gireceği.
 
 Desteklenen girdiler: PNG, JPEG, WEBP, BMP, TIFF, GIF (ilk kare).
 PNG ve JPEG girdilerinde **tek bir bayt bile değiştirilmez** — yeniden sıkıştırma yoktur.
