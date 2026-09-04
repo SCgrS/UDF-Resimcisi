@@ -167,7 +167,7 @@ function listeyiCiz() {
       ` · ${r.bicim} · ${mb(r.bayt)}`;
     bilgi.appendChild(olcu);
 
-    if (r.orijinal_korundu) {
+    if (r.orijinal_korundu && el.kalite.value === "orijinal") {
       const isaret = document.createElement("div");
       isaret.className = "isaret";
       isaret.textContent = "Orijinal baytlar korunuyor — yeniden sıkıştırma yok";
@@ -326,7 +326,10 @@ el.temizle.addEventListener("click", async () => {
 
 el.uret.addEventListener("click", ac);
 
-el.kalite.addEventListener("change", boyutuTazele);
+el.kalite.addEventListener("change", () => {
+  listeyiCiz(); // "orijinal baytlar korunuyor" işareti seçime bağlı
+  boyutuTazele();
+});
 
 el.ayriSayfa.addEventListener("change", () => {
   ayarlariKaydet();

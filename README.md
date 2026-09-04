@@ -59,21 +59,23 @@ Desteklenen girdiler: PNG, JPEG, WEBP, BMP, TIFF, GIF (ilk kare).
 PNG ve JPEG girdilerinde **tek bir bayt bile değiştirilmez** — yeniden sıkıştırma yoktur.
 Telefon fotoğraflarında EXIF `Orientation` okunur; döndürme gerekiyorsa kayıpsız PNG'ye çevrilir.
 
-Resim varsayılan olarak **tam çözünürlükle** gömülür; sayfaya sığması yalnızca punto cinsinden
-görüntüleme ölçüsüyle sağlanır, bitmap'e dokunulmaz.
-
 ### Kalite
 
-Düğmenin üstündeki listeden dosyayı küçültebilirsiniz. **Bu bir ölçek ayarı değildir:** resim
+Düğmenin üstündeki liste dosyanın büyüklüğünü belirler. **Bu bir ölçek ayarı değildir:** resim
 her basamakta sayfada aynı yeri kaplar, yalnızca içindeki piksel yoğunluğu — yani ayrıntı —
 azalır.
 
 | Seçenek | Belgeye giren bitmap (3000 × 2000 px girdi için) |
 | --- | --- |
-| **Orijinal Boyut** (varsayılan) | 3000 × 2000 px — baytlara hiç dokunulmaz |
-| **Büyük Boyut** | 1574 × 1049 px |
+| **Orijinal Boyut** | 3000 × 2000 px — baytlara hiç dokunulmaz |
+| **Optimal Boyut** (varsayılan) | 1574 × 1049 px |
 | **Orta Boyut** | 1050 × 700 px |
 | **Küçük Boyut** | 526 × 350 px — UDE'nin kendi "Ekle → Resim" çıktısıyla (524 × 349) eş değer |
+
+Varsayılan **Optimal Boyut**: ekranda ve baskıda Orijinal Boyut'tan gözle ayırt edilemez, ama
+dosya 10 kata kadar küçülür. UYAP'ın 10 MB sınırına takılmamak için makul olan bu. Tek bir
+pikselin bile korunması gerekiyorsa **Orijinal Boyut**'u seçin; o zaman PNG/JPEG girdinin
+baytlarına hiç dokunulmaz.
 
 Sayfaya zaten sığan küçük resimler hiçbir basamakta değiştirilmez: büyütmek kaliteyi artırmaz,
 yalnızca dosyayı şişirir.
@@ -89,18 +91,18 @@ Sağ üstteki çark düğmesinden:
   konur, açıkken her resim yeni sayfaya geçer
 * **Kaydetme klasörü** — varsayılan `Belgelerim\UDF Resimcisi`
 * **Güncellemeleri denetle** — yeni sürüm varsa tek tıkla indirip kurar
-* UYAP evrak yükleme sınırının **10 MB** olduğu hatırlatması
+* UYAP evrak yükleme sınırının **10 MB** olduğu hatırlatması ve kalite basamakları hakkında not
 * Sürüm ve geliştirici bilgisi
 
 ## Dosya boyutu
 
-UYAP'a yüklenebilen evrak üst sınırı ≈ **10 MB**. Uygulama çözünürlüğe kendiliğinden dokunmaz;
-düğmenin altındaki **üretilecek dosya boyutu** satırını izleyerek kararı siz verirsiniz. Belge
-sınırı aşıyorsa düğmenin üstündeki kalite listesinden bir basamak inin.
+UYAP'a yüklenebilen evrak üst sınırı ≈ **10 MB**. Varsayılan **Optimal Boyut** çoğu belgeyi bu
+sınırın çok altında tutar. Düğmenin altındaki **üretilecek dosya boyutu** satırını izleyerek
+kararı siz verirsiniz; belge yine de sınırı aşıyorsa kalite listesinden bir basamak inin.
 
 Ölçülmüş büyüklükler:
 
-| Girdi | Üretilen `.udf` |
+| Girdi | Üretilen `.udf` (Orijinal Boyut) |
 |---|---|
 | 12 MP telefon fotoğrafı (4000×3000 JPEG, 3,5 MB) | **3,5 MB** |
 | 3000×2000 taranmış belge (PNG, 106 KB) | 190 KB |

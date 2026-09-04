@@ -36,8 +36,9 @@ pub enum Kalite {
     /// Hiç dokunma: baytlar olduğu gibi gömülür (varsayılan).
     #[serde(rename = "orijinal")]
     Orijinal,
-    #[serde(rename = "buyuk")]
-    Buyuk,
+    /// Varsayılan. Gözle görülür bir fark bırakmadan dosyayı belirgin biçimde küçültür.
+    #[serde(rename = "optimal")]
+    Optimal,
     #[serde(rename = "orta")]
     Orta,
     /// UYAP editörünün kendi resim ekleme kalitesiyle eş değer.
@@ -50,7 +51,7 @@ impl Kalite {
     fn carpan(self) -> Option<f64> {
         match self {
             Kalite::Orijinal => None,
-            Kalite::Buyuk => Some(3.0),
+            Kalite::Optimal => Some(3.0),
             Kalite::Orta => Some(2.0),
             Kalite::Kucuk => Some(1.0),
         }
@@ -59,7 +60,7 @@ impl Kalite {
     /// Yeniden kodlarken kullanılacak JPEG kalitesi.
     fn jpeg_kalitesi(self) -> u8 {
         match self {
-            Kalite::Orijinal | Kalite::Buyuk => 90,
+            Kalite::Orijinal | Kalite::Optimal => 90,
             Kalite::Orta => 82,
             Kalite::Kucuk => 75,
         }
@@ -379,7 +380,7 @@ mod tests {
         let spec = genis_gorsel(2400, 1600);
         let (once_w, once_h) = goruntuleme_boyutu(spec.px_w, spec.px_h, Sizing::FitPage, &sayfa);
 
-        for kalite in [Kalite::Buyuk, Kalite::Orta, Kalite::Kucuk] {
+        for kalite in [Kalite::Optimal, Kalite::Orta, Kalite::Kucuk] {
             let k = kaliteye_indir(&spec, kalite, &sayfa).unwrap();
             let (sonra_w, sonra_h) = goruntuleme_boyutu(k.px_w, k.px_h, Sizing::FitPage, &sayfa);
             assert!(
@@ -393,13 +394,13 @@ mod tests {
     fn kalite_basamaklari_gittikce_kucultur() {
         let sayfa = PageFormat::default();
         let spec = genis_gorsel(2400, 1600);
-        let buyuk = kaliteye_indir(&spec, Kalite::Buyuk, &sayfa).unwrap();
+        let optimal = kaliteye_indir(&spec, Kalite::Optimal, &sayfa).unwrap();
         let orta = kaliteye_indir(&spec, Kalite::Orta, &sayfa).unwrap();
         let kucuk = kaliteye_indir(&spec, Kalite::Kucuk, &sayfa).unwrap();
 
-        assert!(buyuk.px_w > orta.px_w && orta.px_w > kucuk.px_w);
-        assert!(spec.bytes.len() > buyuk.bytes.len(), "büyük, orijinalden küçük olmalı");
-        assert!(buyuk.bytes.len() > orta.bytes.len());
+        assert!(optimal.px_w > orta.px_w && orta.px_w > kucuk.px_w);
+        assert!(spec.bytes.len() > optimal.bytes.len(), "optimal, orijinalden küçük olmalı");
+        assert!(optimal.bytes.len() > orta.bytes.len());
         assert!(orta.bytes.len() > kucuk.bytes.len());
     }
 

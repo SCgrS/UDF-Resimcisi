@@ -188,7 +188,7 @@ Basamaklar **punto başına düşen piksel** olarak tanımlı. UDE 1 pikseli 1 p
 | Seçenek | Belgeye giren bitmap |
 |---|---|
 | Orijinal Boyut | 3000 × 2000 px (baytlar korunuyor) |
-| Büyük Boyut | 1574 × 1049 px |
+| Optimal Boyut (1.5 sürümünden beri varsayılan) | 1574 × 1049 px |
 | Orta Boyut | 1050 × 700 px |
 | Küçük Boyut | 526 × 350 px |
 | UDE "Ekle → Resim" (Kayıpsız seçili) | 524 × 349 px |

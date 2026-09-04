@@ -244,15 +244,8 @@ input[type="text"] {
   padding: 40px 20px; overflow: auto;
 }
 .ayarlar-kutu { width: min(620px, 100%); }
-.bilgi-kutu {
-  margin: 10px 0 0;
-  padding: 10px 12px;
-  border: 1px solid var(--uyari);
-  background: var(--uyari-zemin);
-  color: var(--metin);
-  border-radius: 8px;
-  font-size: 13px;
-}
+/* Ayarların alt bilgi satırları arasında biraz nefes olsun. */
+.ayarlar-kutu > p.alt { margin-top: 10px; }
 a { color: var(--vurgu); }
 
 /* metin seçilebilir kalsın istediğimiz yerler */

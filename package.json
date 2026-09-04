@@ -1,6 +1,6 @@
 {
   "name": "udf-resimcisi",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "Resimden tam çözünürlüklü UDF belgesi üreten masaüstü uygulaması",
   "license": "MIT",
