@@ -15,6 +15,19 @@ açılır; oradan kopyalayıp dilekçelere yapıştırılabilir.
 > Bu uygulama UYAP ile ilişkili değildir. Yalnızca birlikte çalışabilirlik için
 > UDF dosyası üretir; UDE'ye ait hiçbir kod içermez.
 
+## Kurulum
+
+### [⬇ UDF-Resimcisi-kurulum.exe indir](https://github.com/SCgrS/UDF-Resimcisi/releases/latest/download/UDF-Resimcisi-kurulum.exe)
+
+Tek dosya, 2 MB. Windows 10 ve üzeri, 64 bit; yönetici hakkı gerekmez. UYAP Doküman
+Editörü kurulu olmalıdır: Uygulama belgeyi UDE'de açar.
+
+1. Yukarıdaki bağlantıya tıklayıp dosyayı indirin.
+2. İndirilen `UDF-Resimcisi-kurulum.exe` dosyasına **çift tıklayın**.
+3. Dosya imzalı olmadığı için Windows SmartScreen bir uyarı gösterebilir:
+   **Daha fazla bilgi** yazısına tıklayın, sonra çıkan **Yine de çalıştır** düğmesine basın.
+4. Kurulum birkaç saniye sürer; bitince Başlat menüsünden **UDF Resimcisi**'ni açın.
+
 ## Kullanım
 
 1. Resimleri pencereye sürükleyin ya da **Dosya seç**'e basın. Panoda bir resim varsa
@@ -88,18 +101,7 @@ görüntülerinde İdeal Boyut zaten küçük olan orijinali büyütmez; orijina
 - Birden çok resim tek belgeye eklendiğinde araya boş satır ya da sayfa sonu koyar.
 - Yeni sürüm çıktığında haber verir ve tek tıkla kendini günceller.
 
-## Kurulum
-
-### [⬇ UDF-Resimcisi-kurulum.exe indir](https://github.com/SCgrS/UDF-Resimcisi/releases/latest/download/UDF-Resimcisi-kurulum.exe)
-
-Tek dosya, 2 MB. Windows 10 ve üzeri, 64 bit; yönetici hakkı gerekmez. UYAP Doküman
-Editörü kurulu olmalıdır: Uygulama belgeyi UDE'de açar.
-
-1. Yukarıdaki bağlantıya tıklayıp dosyayı indirin.
-2. İndirilen `UDF-Resimcisi-kurulum.exe` dosyasına **çift tıklayın**.
-3. Dosya imzalı olmadığı için Windows SmartScreen bir uyarı gösterebilir:
-   **Daha fazla bilgi** yazısına tıklayın, sonra çıkan **Yine de çalıştır** düğmesine basın.
-4. Kurulum birkaç saniye sürer; bitince Başlat menüsünden **UDF Resimcisi**'ni açın.
+## Kurulum ayrıntıları
 
 Kurulum sistem klasörlerine bir şey yazmaz:
 
