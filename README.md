@@ -8,7 +8,7 @@ açılır; oradan kopyalayıp dilekçelere yapıştırılabilir.
 
 Şunu çözer:
 
-1. **Okunmaz resim sorunu.** UDE bir resmi **Ekle → Resim** yoluyla belgeye alırken onu
+   **Okunmaz resim sorunu.** UDE bir resmi **Ekle → Resim** yoluyla belgeye alırken onu
    sayfadaki görüntüleme boyutuna, yaklaşık 72 DPI'a küçültür: 3000 × 2000 piksellik bir
    tarama belgeye 524 × 349 piksel olarak girer, ince yazılar okunmaz olur. Ekleme
    penceresindeki **Kayıpsız** seçeneği bunu değiştirmez. UDF Resimcisi `.udf` dosyasını
