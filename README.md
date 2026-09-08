@@ -92,8 +92,8 @@ görüntülerinde İdeal Boyut zaten küçük olan orijinali büyütmez; orijina
 
 ### [⬇ UDF-Resimcisi-kurulum.exe indir](https://github.com/SCgrS/UDF-Resimcisi/releases/latest/download/UDF-Resimcisi-kurulum.exe)
 
-Tek dosya, 2 MB. Windows 10 ve üzeri, 64 bit; yönetici hakkı gerekmez. **UYAP Doküman
-Editörü kurulu olmalıdır**: uygulama belgeyi UDE'de açar, UDE yoksa çalışmaz.
+Tek dosya, 2 MB. Windows 10 ve üzeri, 64 bit; yönetici hakkı gerekmez. UYAP Doküman
+Editörü kurulu olmalıdır: Uygulama belgeyi UDE'de açar.
 
 1. Yukarıdaki bağlantıya tıklayıp dosyayı indirin.
 2. İndirilen `UDF-Resimcisi-kurulum.exe` dosyasına **çift tıklayın**.
