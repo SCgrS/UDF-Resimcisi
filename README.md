@@ -21,16 +21,30 @@ açılır; oradan kopyalayıp dilekçenize yapıştırırsınız.
 > Bu uygulama UYAP veya HAVELSAN ile ilişkili değildir. Yalnızca birlikte çalışabilirlik için
 > UDF dosyası üretir; UDE'ye ait hiçbir kod içermez.
 
-## İdeal Boyut ile Orijinal Boyut arasında fark var mı?
+## UYAP Resim Ekle aracıyla fark ne kadar?
 
-Gözle görülür bir fark yok. Aşağıda aynı taranmış dilekçe sayfasının aynı bölgesi üç kalite
-basamağında, ekranda büyütülmüş hâliyle görülüyor. Belgede üçü de aynı yeri kaplar; değişen
-yalnızca içindeki piksel sayısıdır. Soldaki, UDE'nin kendi **Ekle → Resim** yolunun ürettiği
-kaliteye denk gelir.
+Aynı ekran görüntüsünü (bir ilan sayfası) dilekçeye üç yolla koyduk; aşağıda üçü de UDE'de
+aynı büyütmede görünüyor:
 
-![Küçük, İdeal ve Orijinal Boyut karşılaştırması](docs/karsilastirma.png)
+1. **Doğrudan yapıştırma.** Ekran görüntüsünü UDE'de **Ctrl+V** ile yapıştırınca UDE resmi
+   küçültür; sonuç en kötüsüdür, yazılar okunmaz olur.
+2. **Ekle → Resim, Kayıpsız işaretli.** Görüntüyü dosya olarak kaydedip UDE'nin **Ekle →
+   Resim** penceresinden **Kayıpsız** seçeneğiyle eklemek biraz daha iyi sonuç verir; ama
+   küçültme yine çalışır, yazılar hâlâ bulanıktır.
+3. **UDF Resimcisi.** Belgeyi kendisi yazdığı için küçültme hiç devreye girmez; resim
+   ekrandaki hâliyle, piksel piksel belgeye girer.
 
-Ölçülmüş dosya boyutları (ölçüm aracı ve yöntem [DOGRULAMA.md](DOGRULAMA.md) içinde):
+![Aynı ekran görüntüsü: doğrudan yapıştırma, Kayıpsız ekleme ve UDF Resimcisi](docs/uyap-karsilastirma.png)
+
+Bu yalnızca ekran görüntülerinde değil, her resimde böyledir: taranmış sayfa, telefon
+fotoğrafı, ekspertiz raporu. UDE'nin kendi yollarıyla giren resim her zaman ekran
+çözünürlüğüne düşer; UDF Resimcisi'yle giren resim olduğu gibi kalır.
+
+### İdeal Boyut ile Orijinal Boyut arasında fark var mı?
+
+Gözle görülür bir fark yok. Belgede ikisi de aynı yeri kaplar; değişen yalnızca içindeki piksel
+sayısı ve dosya boyutudur. Ölçülmüş dosya boyutları (ölçüm aracı ve yöntem
+[DOGRULAMA.md](DOGRULAMA.md) içinde):
 
 | Girdi | Basamak | Belgeye giren resim | `.udf` dosyası | Dilekçeye yapıştırıldığında |
 | --- | --- | --- | --- | --- |
