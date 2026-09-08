@@ -29,7 +29,7 @@ aynı büyütmede görünüyor:
 1. **Doğrudan yapıştırma.** Ekran görüntüsü veya kopyalanan bir fotoğraf, UDE'de **Ctrl+V** ile yapıştırılınca UDE resmi
    küçültür; sonuç en kötüsüdür: Yazılar okunmaz, fotoğrafların kalitesi aşırı düşer.
 2. **Ekle → Resim, Kayıpsız işaretli.** Bir görüntüyü UDE'nin **Ekle → Resim** penceresinden **Kayıpsız** seçeneğiyle eklemek biraz daha iyi sonuç verir; ama küçültme yine çalışır, yazılar yine bulanık olur. Ayrıca ekran görüntüleri için Paint'e yapıştırıp kaydedip UDE'nin ekle kısmındaki klasörlerden eklemek veya yine UDE'nin ekle kısmındaki klasörlerden Ekran Görüntüleri klasörünü bulup eklemek zahmetlidir. 
-3. **UDF Resimcisi.** Ekran görüntüleri CTRL+V veya sağ klik yapıştır ile doğrudan programa yapıştırılıp tek tuşla saniyeler içinde belge oluşturur. Görüntüler içine sürüklenebilir. Görüntüler kopyalanıp aynı şekilde uygulama içine yapıştırılabilir. Belgeyi kendisi yazdığı için küçültme hiç devreye girmez; resim
+3. **UDF Resimcisi.** Ekran görüntüleri CTRL+V veya sağ tıklama yapıştır ile doğrudan programa yapıştırılıp tek tuşla saniyeler içinde belge oluşturur. Görüntüler içine sürüklenebilir. Görüntüler kopyalanıp aynı şekilde uygulama içine yapıştırılabilir. Belgeyi kendisi yazdığı için küçültme hiç devreye girmez; resim
    ekrandaki hâliyle, piksel piksel belgeye girer.
 
 ![Aynı ekran görüntüsü: doğrudan yapıştırma, Kayıpsız ekleme ve UDF Resimcisi](docs/uyap-karsilastirma.png)
