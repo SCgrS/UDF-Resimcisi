@@ -6,16 +6,14 @@ açılır; oradan kopyalayıp dilekçelere yapıştırılabilir.
 
 ![UDF Resimcisi penceresi](docs/ekran.png)
 
-Üç şeyi çözer:
+Şunu çözer:
 
 1. **Okunmaz resim sorunu.** UDE bir resmi **Ekle → Resim** yoluyla belgeye alırken onu
    sayfadaki görüntüleme boyutuna, yaklaşık 72 DPI'a küçültür: 3000 × 2000 piksellik bir
    tarama belgeye 524 × 349 piksel olarak girer, ince yazılar okunmaz olur. Ekleme
    penceresindeki **Kayıpsız** seçeneği bunu değiştirmez. UDF Resimcisi `.udf` dosyasını
    kendisi yazdığı için o küçültme hiç çalışmaz.
-2. **Şişkin dosya sorunu.** Varsayılan **İdeal Boyut**, gözle görülür hiçbir fark
-   bırakmadan dosyayı küçültür: 3,5 MB'lık telefon fotoğrafından 300 KB'lık `.udf` çıkar.
-3. **Kopyala-yapıştır.** Üretilen belge UDE'de açılır; **Ctrl+A**, **Ctrl+C** ile
+  **Kopyala-yapıştır.** Üretilen belge UDE'de açılır; **Ctrl+A**, **Ctrl+C** ile
    kopyalayıp dilekçenizde **Ctrl+V** ile istediğiniz yere yapıştırırsınız.
 
 > Bu uygulama UYAP ile ilişkili değildir. Yalnızca birlikte çalışabilirlik için
