@@ -13,8 +13,6 @@ açılır; oradan kopyalayıp dilekçelere yapıştırılabilir.
    tarama belgeye 524 × 349 piksel olarak girer, ince yazılar okunmaz olur. Ekleme
    penceresindeki **Kayıpsız** seçeneği bunu değiştirmez. UDF Resimcisi `.udf` dosyasını
    kendisi yazdığı için o küçültme hiç çalışmaz.
-  **Kopyala-yapıştır.** Üretilen belge UDE'de açılır; **Ctrl+A**, **Ctrl+C** ile
-   kopyalayıp dilekçenizde **Ctrl+V** ile istediğiniz yere yapıştırırsınız.
 
 > Bu uygulama UYAP ile ilişkili değildir. Yalnızca birlikte çalışabilirlik için
 > UDF dosyası üretir; UDE'ye ait hiçbir kod içermez.
