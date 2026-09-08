@@ -4,8 +4,6 @@ Bir fotoğrafı, taranmış bir sayfayı ya da ekran görüntüsünü **ideal ç
 koruyarak** `.udf` belgesine koyan Windows uygulaması. Belge UYAP Doküman Editörü'nde (UDE)
 açılır; oradan kopyalayıp dilekçelere yapıştırılabilir.
 
-![UDF Resimcisi penceresi](docs/ekran.png)
-
 Şunu çözer:
 
    **Okunmaz resim sorunu.** UDE bir resmi **Ekle → Resim** yoluyla belgeye alırken onu
