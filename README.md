@@ -18,7 +18,7 @@ açılır; oradan kopyalayıp dilekçelere yapıştırılabilir.
 3. **Kopyala-yapıştır.** Üretilen belge UDE'de açılır; **Ctrl+A**, **Ctrl+C** ile
    kopyalayıp dilekçenizde **Ctrl+V** ile istediğiniz yere yapıştırırsınız.
 
-> Bu uygulama UYAP veya HAVELSAN ile ilişkili değildir. Yalnızca birlikte çalışabilirlik için
+> Bu uygulama UYAP ile ilişkili değildir. Yalnızca birlikte çalışabilirlik için
 > UDF dosyası üretir; UDE'ye ait hiçbir kod içermez.
 
 ## UYAP Resim Ekle aracıyla fark ne kadar?
@@ -26,12 +26,10 @@ açılır; oradan kopyalayıp dilekçelere yapıştırılabilir.
 Aynı ekran görüntüsünü (bir ilan sayfası) dilekçeye üç yolla koyduk; aşağıda üçü de UDE'de
 aynı büyütmede görünüyor:
 
-1. **Doğrudan yapıştırma.** Ekran görüntüsünü UDE'de **Ctrl+V** ile yapıştırınca UDE resmi
-   küçültür; sonuç en kötüsüdür, yazılar okunmaz olur.
-2. **Ekle → Resim, Kayıpsız işaretli.** Görüntüyü dosya olarak kaydedip UDE'nin **Ekle →
-   Resim** penceresinden **Kayıpsız** seçeneğiyle eklemek biraz daha iyi sonuç verir; ama
-   küçültme yine çalışır, yazılar hâlâ bulanıktır.
-3. **UDF Resimcisi.** Belgeyi kendisi yazdığı için küçültme hiç devreye girmez; resim
+1. **Doğrudan yapıştırma.** Ekran görüntüsü veya kopyalanan bir fotoğraf, UDE'de **Ctrl+V** ile yapıştırılınca UDE resmi
+   küçültür; sonuç en kötüsüdür: Yazılar okunmaz, fotoğrafların kalitesi aşırı düşer.
+2. **Ekle → Resim, Kayıpsız işaretli.** Bir görüntüyü UDE'nin **Ekle → Resim** penceresinden **Kayıpsız** seçeneğiyle eklemek biraz daha iyi sonuç verir; ama küçültme yine çalışır, yazılar yine bulanık olur. Ayrıca ekran görüntüleri için Paint'e yapıştırıp kaydedip UDE'nin ekle kısmındaki klasörlerden eklemek veya yine UDE'nin ekle kısmındaki klasörlerden Ekran Görüntüleri klasörünü bulup eklemek zahmetlidir. 
+3. **UDF Resimcisi.** Ekran görüntüleri CTRL+V veya sağ klik yapıştır ile doğrudan programa yapıştırılıp tek tuşla saniyeler içinde belge oluşturur. Görüntüler içine sürüklenebilir. Görüntüler kopyalanıp aynı şekilde uygulama içine yapıştırılabilir. Belgeyi kendisi yazdığı için küçültme hiç devreye girmez; resim
    ekrandaki hâliyle, piksel piksel belgeye girer.
 
 ![Aynı ekran görüntüsü: doğrudan yapıştırma, Kayıpsız ekleme ve UDF Resimcisi](docs/uyap-karsilastirma.png)
