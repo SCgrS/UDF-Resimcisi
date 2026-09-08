@@ -15,6 +15,17 @@ açılır; oradan kopyalayıp dilekçelere yapıştırılabilir.
 > Bu uygulama UYAP ile ilişkili değildir. Yalnızca birlikte çalışabilirlik için
 > UDF dosyası üretir; UDE'ye ait hiçbir kod içermez.
 
+## Kullanım
+
+1. Resimleri pencereye sürükleyin ya da **Dosya seç**'e basın. Panoda bir resim varsa
+   (örneğin `Win+Shift+S` ile alınmış ekran görüntüsü) **Ctrl+V** ile veya pencerede sağ
+   tıklayıp **Yapıştır** ile ekleyin.
+2. Kalite listesinde **İdeal Boyut** seçili gelir; çoğu iş için değiştirmeniz gerekmez.
+3. **UDF'de aç**'a basın. Belge kaydetme klasörüne yazılır ve UDE'de açılır.
+4. UDE'de **Ctrl+A** ile tümünü seçin, **Ctrl+C** ile kopyalayın; dilekçenizi açıp
+   istediğiniz yere **Ctrl+V** ile yapıştırın. Belgeyi tek başına da kullanabilirsiniz:
+   `.udf` dosyası UYAP'a doğrudan yüklenebilir.
+
 ## UYAP Resim Ekle aracıyla fark ne kadar?
 
 Aynı ekran görüntüsünü (bir ilan sayfası) dilekçeye üç yolla koyduk; aşağıda üçü de UDE'de
@@ -111,16 +122,7 @@ Beklemek istemiyorsanız **Ayarlar → Şimdi denetle ve güncelle** aynı işi 
 Açılıştaki denetimi **Ayarlar → Açılışta yeni sürümü denetle** kutusundan kapatabilirsiniz;
 o zaman yalnızca düğmeye bastığınızda sorulur.
 
-## Kullanım
-
-1. Resimleri pencereye sürükleyin ya da **Dosya seç**'e basın. Panoda bir resim varsa
-   (örneğin `Win+Shift+S` ile alınmış ekran görüntüsü) **Ctrl+V** ile veya pencerede sağ
-   tıklayıp **Yapıştır** ile ekleyin.
-2. Kalite listesinde **İdeal Boyut** seçili gelir; çoğu iş için değiştirmeniz gerekmez.
-3. **UDF'de aç**'a basın. Belge kaydetme klasörüne yazılır ve UDE'de açılır.
-4. UDE'de **Ctrl+A** ile tümünü seçin, **Ctrl+C** ile kopyalayın; dilekçenizi açıp
-   istediğiniz yere **Ctrl+V** ile yapıştırın. Belgeyi tek başına da kullanabilirsiniz:
-   `.udf` dosyası UYAP'a doğrudan yüklenebilir.
+## Ayrıntılar
 
 Büyük düğmenin altındaki **Klasörü aç**, kaydetme klasörünü Gezgin'de açar; az önce bir belge
 ürettiyseniz o dosya seçili gelir.
