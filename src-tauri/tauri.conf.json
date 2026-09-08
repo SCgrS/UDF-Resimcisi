@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "UDF Resimcisi",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "identifier": "com.cagrisahin.udfresimcisi",
   "build": {
     "frontendDist": "../src"
@@ -29,8 +29,8 @@
     "publisher": "Çağrı Şahin",
     "copyright": "MIT",
     "category": "Productivity",
-    "shortDescription": "Resimden tam çözünürlüklü UDF üretir",
-    "longDescription": "Fotoğraf veya ekran görüntüsünü, UYAP Doküman Editörü'nün küçültmesine uğratmadan, tam çözünürlükle bir .udf belgesine yerleştirir.",
+    "shortDescription": "Resmi ideal çözünürlükte UDF'ye koyar",
+    "longDescription": "Fotoğraf, tarama veya ekran görüntüsünü ideal çözünürlükte, kalitesini koruyarak bir .udf belgesine koyar; belge UYAP Doküman Editörü'nde açılır, oradan dilekçeye yapıştırılır.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

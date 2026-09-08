@@ -17,11 +17,17 @@ const el = {
   temizle: $("listeyi-temizle"),
   kalite: $("kalite"),
   uret: $("uret"),
+  klasoruAc: $("klasoru-ac"),
   boyut: $("boyut"),
   durum: $("durum"),
   // sağ tık menüsü
   baglamMenu: $("baglam-menu"),
   baglamYapistir: $("baglam-yapistir"),
+  // güncelleme çubuğu (açılışta yeni sürüm bulunursa)
+  cubuk: $("guncelleme-cubugu"),
+  cubukMetin: $("guncelleme-cubugu-metin"),
+  cubukKur: $("guncelleme-cubugu-kur"),
+  cubukKapat: $("guncelleme-cubugu-kapat"),
   // ayarlar
   ayarlarAc: $("ayarlar-ac"),
   ayarlarPerde: $("ayarlar-perde"),
@@ -29,8 +35,8 @@ const el = {
   ayriSayfa: $("ayri-sayfa"),
   ciktiKlasoru: $("cikti-klasoru"),
   klasorSec: $("klasor-sec"),
+  otomatikGuncelleme: $("otomatik-guncelleme"),
   guncellemeDenetle: $("guncelleme-denetle"),
-  guncellemeKur: $("guncelleme-kur"),
   guncellemeDurum: $("guncelleme-durum"),
   surum: $("surum"),
   gelistirici: $("gelistirici"),
@@ -38,7 +44,8 @@ const el = {
 
 let resimler = [];
 let sonUretilenYol = null;
-let indirmeAdresi = "";
+// UYAP Doküman Editörü bulunamadıysa üretme düğmesi hiç açılmaz: uygulama onsuz çalışmaz.
+let udeVar = true;
 
 // ---------------------------------------------------------------------------
 // Yardımcılar
@@ -60,11 +67,15 @@ function hazirMetni(n) {
   return `${n} resim UDF belge içinde oluşturulmaya hazır.`;
 }
 
+function uretDugmesiniAyarla() {
+  el.uret.disabled = resimler.length === 0 || !udeVar;
+}
+
 function mesgulYap(evet, metin) {
   document.querySelectorAll("main button, main select").forEach((b) => {
     b.disabled = evet;
   });
-  if (!evet) el.uret.disabled = resimler.length === 0;
+  if (!evet) uretDugmesiniAyarla();
   if (metin) durum(metin);
 }
 
@@ -82,6 +93,7 @@ async function ayarlariYukle() {
     const a = await invoke("ayarlari_getir");
     el.ayriSayfa.checked = a.ayri_sayfa;
     el.ciktiKlasoru.value = a.cikti_klasoru;
+    el.otomatikGuncelleme.checked = a.otomatik_guncelleme;
     const t = document.querySelector(`input[name="tema"][value="${a.tema}"]`);
     if (t) t.checked = true;
     temaUygula(a.tema);
@@ -104,6 +116,7 @@ function ayarlariKaydet() {
           ayri_sayfa: el.ayriSayfa.checked,
           cikti_klasoru: el.ciktiKlasoru.value,
           tema: seciliTema(),
+          otomatik_guncelleme: el.otomatikGuncelleme.checked,
         },
       });
     } catch (e) {
@@ -130,7 +143,10 @@ function boyutuTazele() {
         ayriSayfa: el.ayriSayfa.checked,
         kalite: el.kalite.value,
       });
-      el.boyut.textContent = `Üretilecek dosya boyutu: ${mb(b)}`;
+      // İkinci sayı: UDE her yapıştırılan resmi PNG'ye çevirir; dilekçenin büyüyeceği miktar odur.
+      el.boyut.textContent =
+        `Üretilecek dosya boyutu: ${mb(b.dosya)} · ` +
+        `Dilekçeye yapıştırıldığında yaklaşık ${mb(b.yapistirma)}`;
     } catch (e) {
       el.boyut.textContent = "";
       console.error(e);
@@ -142,7 +158,7 @@ function listeyiCiz() {
   el.liste.innerHTML = "";
   el.sayac.textContent = resimler.length;
   el.listeBolumu.hidden = resimler.length === 0;
-  el.uret.disabled = resimler.length === 0;
+  uretDugmesiniAyarla();
 
   resimler.forEach((r, i) => {
     const li = document.createElement("li");
@@ -245,12 +261,7 @@ async function ac() {
       ciktiKlasoru: el.ciktiKlasoru.value,
     });
     sonUretilenYol = s.yol;
-    durumKlasorlu(
-      s.ude_acildi
-        ? `Belge hazır (${mb(s.boyut_bayt)}) ve açıldı.`
-        : `Belge kaydedildi (${mb(s.boyut_bayt)}). UYAP Doküman Editörü bulunamadığı için açılamadı.`,
-      s.ude_acildi ? "iyi" : "kotu"
-    );
+    durum(`Belge hazır (${mb(s.boyut_bayt)}) ve UYAP Doküman Editörü'nde açıldı.`, "iyi");
   } catch (e) {
     durum(String(e), "kotu");
   } finally {
@@ -258,23 +269,53 @@ async function ac() {
   }
 }
 
-// Durum satırına "Klasörü aç" bağlantısını ekler (kaydedilen yer ayrı bir kutuda gösterilmez).
-function durumKlasorlu(metin, sinif) {
-  durum(metin, sinif);
-  if (!sonUretilenYol) return;
-  el.durum.append(" · ");
-  const a = document.createElement("a");
-  a.href = "#";
-  a.textContent = "Klasörü aç";
-  a.addEventListener("click", async (ev) => {
-    ev.preventDefault();
+// "Klasörü aç": son üretilen belge varsa onu seçili gösterir, yoksa kaydetme klasörünü açar.
+async function klasoruAc() {
+  if (sonUretilenYol) {
     try {
       await opener.revealItemInDir(sonUretilenYol);
+      return;
     } catch {
-      await invoke("klasorde_goster", { yol: sonUretilenYol });
+      // Dosya silinmiş olabilir; klasörün kendisine düş.
+      sonUretilenYol = null;
     }
-  });
-  el.durum.appendChild(a);
+  }
+  try {
+    await invoke("klasoru_ac", { klasor: el.ciktiKlasoru.value });
+  } catch (e) {
+    durum(String(e), "kotu");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Güncelleme
+// ---------------------------------------------------------------------------
+
+// Denetler; yeni sürüm varsa indirip kurulumu başlatır (uygulama kapanıp yeniden açılır).
+// `bildir(metin)` ilerlemeyi yazdırır; `sessiz` açılıştaki arka plan denetimidir.
+async function guncelle(bildir) {
+  bildir("Denetleniyor…");
+  const g = await invoke("guncelleme_denetle");
+  el.surum.textContent = g.bu_surum;
+  if (g.durum !== "yeni-surum-var" || !g.indirme_adresi) {
+    bildir(g.mesaj);
+    return false;
+  }
+  bildir(`Yeni sürüm ${g.yeni_surum} indiriliyor…`);
+  await invoke("guncellemeyi_kur", { indirmeAdresi: g.indirme_adresi });
+  bildir(`Sürüm ${g.yeni_surum} kuruluyor; uygulama birazdan yeniden açılacak.`);
+  return true;
+}
+
+async function acilistaDenetle() {
+  try {
+    const g = await invoke("guncelleme_denetle");
+    if (g.durum !== "yeni-surum-var" || !g.indirme_adresi) return;
+    el.cubukMetin.textContent = `Yeni sürüm ${g.yeni_surum} hazır (kullandığınız: ${g.bu_surum}).`;
+    el.cubuk.hidden = false;
+  } catch (e) {
+    console.error(e); // Açılışta sessiz: ağ yoksa kullanıcıyı rahatsız etme.
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -325,6 +366,7 @@ el.temizle.addEventListener("click", async () => {
 });
 
 el.uret.addEventListener("click", ac);
+el.klasoruAc.addEventListener("click", klasoruAc);
 
 el.kalite.addEventListener("change", () => {
   listeyiCiz(); // "orijinal baytlar korunuyor" işareti seçime bağlı
@@ -335,6 +377,8 @@ el.ayriSayfa.addEventListener("change", () => {
   ayarlariKaydet();
   boyutuTazele();
 });
+
+el.otomatikGuncelleme.addEventListener("change", ayarlariKaydet);
 
 // --- yapıştırma: Ctrl+V ve sağ tık menüsü ---
 document.addEventListener("keydown", (e) => {
@@ -399,18 +443,11 @@ el.gelistirici.addEventListener("click", async (e) => {
   }
 });
 
+// Ayarlardaki düğme: denetler, yeni sürüm varsa hemen kurar.
 el.guncellemeDenetle.addEventListener("click", async () => {
   el.guncellemeDenetle.disabled = true;
-  el.guncellemeKur.hidden = true;
-  el.guncellemeDurum.textContent = "Denetleniyor…";
   try {
-    const g = await invoke("guncelleme_denetle");
-    el.surum.textContent = g.bu_surum;
-    el.guncellemeDurum.textContent = g.mesaj;
-    if (g.durum === "yeni-surum-var" && g.indirme_adresi) {
-      indirmeAdresi = g.indirme_adresi;
-      el.guncellemeKur.hidden = false;
-    }
+    await guncelle((m) => (el.guncellemeDurum.textContent = m));
   } catch (e) {
     el.guncellemeDurum.textContent = String(e);
   } finally {
@@ -418,18 +455,19 @@ el.guncellemeDenetle.addEventListener("click", async () => {
   }
 });
 
-el.guncellemeKur.addEventListener("click", async () => {
-  el.guncellemeKur.disabled = true;
-  el.guncellemeDurum.textContent = "İndiriliyor…";
+// Açılış çubuğundaki "Güncelle": aynı yol, ilerleme çubuğun kendisine yazılır.
+el.cubukKur.addEventListener("click", async () => {
+  el.cubukKur.disabled = true;
+  el.cubukKapat.hidden = true;
   try {
-    await invoke("guncellemeyi_kur", { indirmeAdresi });
-    el.guncellemeDurum.textContent = "Kurulum başlatıldı.";
+    await guncelle((m) => (el.cubukMetin.textContent = m));
   } catch (e) {
-    el.guncellemeDurum.textContent = String(e);
-  } finally {
-    el.guncellemeKur.disabled = false;
+    el.cubukMetin.textContent = String(e);
+    el.cubukKur.disabled = false;
+    el.cubukKapat.hidden = false;
   }
 });
+el.cubukKapat.addEventListener("click", () => (el.cubuk.hidden = true));
 
 // Sürükle-bırak (Tauri v2 penceresi; tarayıcı olayları yerine webview olayı).
 // Pencerenin tamamı bırakma alanıdır; vurgu da tüm pencerede yapılır.
@@ -457,13 +495,17 @@ window.addEventListener("drop", (e) => e.preventDefault());
     console.error(e);
   }
   try {
-    const kurulu = await invoke("ude_kurulu_mu");
-    if (!kurulu) {
-      durum(
-        "UYAP Doküman Editörü bulunamadı. Belgeler yine üretilip kaydedilir; açmak için editör gerekir."
-      );
-    }
+    udeVar = await invoke("ude_kurulu_mu");
   } catch (e) {
     console.error(e);
   }
+  if (!udeVar) {
+    uretDugmesiniAyarla();
+    durum(
+      "UYAP Doküman Editörü bu bilgisayarda bulunamadı. Uygulama onsuz çalışmaz: önce UDE'yi kurun, sonra uygulamayı yeniden açın.",
+      "kotu"
+    );
+  }
+  // Yeni sürüm denetimi kullanıcıyı bekletmesin: pencere çizildikten sonra, arka planda.
+  if (el.otomatikGuncelleme.checked) setTimeout(acilistaDenetle, 2500);
 })();

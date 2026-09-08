@@ -43,7 +43,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "UDF Resimcisi ${{ github.ref_name }}"
           releaseBody: |
-            Resimden tam çözünürlüklü UDF üretir.
+            Resmi ideal çözünürlükte, kalitesini koruyarak UDF'ye koyar; açılan belgeden kopyalayıp dilekçenize yapıştırın.
 
             Kod imzalama sertifikası yok: Windows SmartScreen uyarı gösterirse
             **Daha fazla bilgi → Yine de çalıştır** deyin.

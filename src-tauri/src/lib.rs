@@ -1,8 +1,9 @@
-//! UDF Resimcisi — resimden tam çözünürlüklü UDF belgesi üretir.
+//! UDF Resimcisi — resmi ideal çözünürlükte, kalitesini koruyarak UDF belgesine koyar.
 //!
 //! Neden gerekli: UYAP Doküman Editörü resmi belgeye alırken bitmap'i yeniden örnekliyor
 //! (ölçüldü: 3000×2000 px görsel "Ekle → Resim" yolundan 524×349 px olarak çıkıyor).
-//! Bu uygulama `.udf` dosyasını kendisi yazdığı için o kod hiç çalışmaz.
+//! Bu uygulama `.udf` dosyasını kendisi yazdığı için o kod hiç çalışmaz; belge üretilir
+//! üretilmez UDE'de açılır, oradan kopyalanıp dilekçeye yapıştırılır. UDE şarttır.
 
 pub mod commands;
 pub mod image_io;
@@ -31,6 +32,7 @@ pub fn run() {
             commands::belge_boyutu,
             commands::udfde_ac,
             commands::klasorde_goster,
+            commands::klasoru_ac,
             commands::ude_kurulu_mu,
             commands::surum,
             commands::guncelleme_denetle,

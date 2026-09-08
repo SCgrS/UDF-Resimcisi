@@ -10,7 +10,7 @@
   <header>
     <div>
       <h1>UDF Resimcisi</h1>
-      <p class="alt">Resmi tam çözünürlükle UDF'ye koyar — UYAP editörünün küçültmesine uğramadan.</p>
+      <p class="alt">Resmi ideal çözünürlükte, kalitesini koruyarak UDF'ye koyar. Açılan belgeden kopyalayıp dilekçenize yapıştırabilirsiniz.</p>
     </div>
     <button id="ayarlar-ac" type="button" class="carkli" title="Ayarlar" aria-label="Ayarlar">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -19,6 +19,13 @@
       </svg>
     </button>
   </header>
+
+  <!-- Açılışta yeni sürüm bulunursa görünür. -->
+  <div id="guncelleme-cubugu" class="cubuk" role="status" hidden>
+    <span id="guncelleme-cubugu-metin">Yeni sürüm hazır.</span>
+    <button id="guncelleme-cubugu-kur" type="button" class="kucuk">Güncelle</button>
+    <button id="guncelleme-cubugu-kapat" type="button" class="baglanti">Daha sonra</button>
+  </div>
 
   <main>
     <section id="birakma-alani" class="birakma">
@@ -48,13 +55,14 @@
     <div class="eylem">
       <select id="kalite" class="kalite" aria-label="Resim kalitesi">
         <option value="orijinal">Orijinal Boyut</option>
-        <option value="optimal" selected>Optimal Boyut</option>
+        <option value="ideal" selected>İdeal Boyut</option>
         <option value="orta">Orta Boyut</option>
         <option value="kucuk">Küçük Boyut</option>
       </select>
       <p id="boyut" class="boyut"></p>
       <p id="durum" class="durum" role="status" aria-live="polite"></p>
       <button id="uret" type="button" class="birincil" disabled>UDF'de aç</button>
+      <button id="klasoru-ac" type="button" class="kucuk" title="Belgelerin kaydedildiği klasörü Gezgin'de açar">Klasörü aç</button>
     </div>
   </main>
 
@@ -101,16 +109,19 @@
       <div class="satir">
         <span class="etiket">Güncelleme</span>
         <div class="secim-grubu">
-          <button id="guncelleme-denetle" type="button" class="ikincil">Güncellemeleri denetle</button>
-          <button id="guncelleme-kur" type="button" hidden>İndir ve kur</button>
-          <span id="guncelleme-durum" class="alt"></span>
+          <label class="onay">
+            <input type="checkbox" id="otomatik-guncelleme" />
+            <span>Açılışta yeni sürümü denetle</span>
+          </label>
+          <button id="guncelleme-denetle" type="button" class="ikincil">Şimdi denetle ve güncelle</button>
         </div>
+        <span id="guncelleme-durum" class="alt guncelleme-durum"></span>
       </div>
 
       <p class="alt">UYAP'a yüklenebilen evrak boyutu en fazla <strong>10 MB</strong>'tır.</p>
 
       <p class="alt">
-        Optimal Boyut ile Orijinal Boyut arasında gözle görülebilir bir fark yoktur. Ancak dosya
+        İdeal Boyut ile Orijinal Boyut arasında gözle görülebilir bir fark yoktur. Ancak dosya
         boyutları arasındaki fark 10 kata kadar çıkabilmektedir.
       </p>
 

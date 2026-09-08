@@ -202,3 +202,121 @@ Sayfaya zaten sığan resimler hiçbir basamakta değiştirilmiyor: hedef piksel
 
 Kodlama: küçültülen resim hem PNG hem JPEG olarak kodlanıp küçük olanı seçiliyor. Alfa kanalı
 gerçekten kullanılıyorsa (herhangi bir piksel saydamsa) JPEG hiç denenmiyor.
+
+## 1.6 sürümü — yapıştırma ölçümü, İdeal Boyut, UDE zorunluluğu, kendini güncelleme
+
+Ortam: Windows 11 Pro 26200, UDE 5.4.20 (`C:\Uyap\Uyap Kelime Islemci\`). Ölçüm aracı
+`src-tauri/examples/olcum.rs` (`cargo run --release --example olcum -- <resim> [--yaz <klasör>]`).
+Kalite basamağının adı bu sürümde **Optimal → İdeal** oldu; davranışı aynı (punto başına 3 px).
+
+### UDE yapıştırılan her resmi PNG olarak yeniden kodluyor
+
+Kullanıcı gözlemi: "İdeal'de 400 KB iniyor ama UDE'de kopyalayıp dilekçeye yapıştırınca
+3,38 MB oluyor." Sınandı: uygulamanın ürettiği belge UDE'de açıldı → `Ctrl+A`, `Ctrl+C`
+(pano sıra numarası değişti) → `Ctrl+N` → `Ctrl+V` → `Ctrl+S` ile kaydedildi; kaydedilen
+dosyanın içindeki resim çözüldü.
+
+| Kaynak belge | Gömülü resim | Yapıştırılıp kaydedilen belge | İçindeki resim |
+|---|---|---|---|
+| `telefon-12mp-ideal.udf` (307.302 B) | **JPEG** 1575 × 1181, 317.949 B | 1.692.811 B | **PNG** 1575 × 1181, 1.648.490 B |
+| `app1-ideal.udf` (446.070 B) | PNG 1575 × 866, 465.686 B | 368.825 B | PNG 1575 × 866, 364.757 B (baytlar farklı: yeniden kodlanmış) |
+
+Sonuç: JPEG de PNG de UDE tarafından **yeniden PNG olarak yazılıyor**; gömdüğümüz biçim yalnızca
+`.udf` dosyasının boyutunu etkiliyor, dilekçeye giren miktarı **piksel sayısı** belirliyor.
+Word'den çevrilen belgeyle aynı büyüklüğe çıkması da bundan: iki yolda da resim benzer piksel
+sayısıyla PNG olarak gömülüyor.
+
+### Yapıştırma boyutu kestirimi
+
+UDE'nin PNG'sine hangi kodlama ayarı yaklaşıyor? `image` sandığıyla her ayar denendi
+(UDE'nin yazdığına göre fark):
+
+| Sıkıştırma | Filtre | telefon-ideal (RGB) | app1-ideal (RGBA) |
+|---|---|---|---|
+| Default | **NoFilter** | **+%2** | **+%2** |
+| Default | Adaptive | −%11 | +%14 |
+| Best | Adaptive | −%18 | +%14 |
+| Fast | Adaptive | +%46 | +%28 |
+
+UDE (Java ImageIO) satır filtresi kullanmıyor, varsayılan deflate düzeyiyle yazıyor.
+`image_io::yapistirma_boyutu` bu ayarla kodlayıp ölçüyor; arayüzdeki boyut satırı
+"dilekçeye yapıştırıldığında yaklaşık …" olarak bunu gösteriyor. Sonuç basamak başına
+önbelleğe alınıyor.
+
+### Yeni ölçümler (tüm basamaklar)
+
+12 MP telefon fotoğrafı, 4000 × 3000 JPEG, 3,53 MB:
+
+| Basamak | Bitmap | Biçim | Bitmap boyutu | `.udf` | Yapıştırınca ≈ |
+|---|---|---|---|---|---|
+| Orijinal | 4000 × 3000 | JPEG | 3,53 MB | 3,55 MB | 13,35 MB |
+| İdeal | 1575 × 1181 | JPEG | 310 KB | 300 KB | 1,60 MB (ölçülen: 1,65 MB) |
+| Orta | 1050 × 788 | JPEG | 76 KB | 68 KB | 544 KB |
+| Küçük | 526 × 395 | JPEG | 15 KB | 13 KB | 108 KB |
+
+Taranmış A4 dilekçe sayfası (sentetik: Times New Roman 12 pt, 300 DPI, sensör gürültüsü),
+2480 × 3508 JPEG, 1,93 MB:
+
+| Basamak | Bitmap | Biçim | Bitmap boyutu | `.udf` | Yapıştırınca ≈ |
+|---|---|---|---|---|---|
+| Orijinal | 2480 × 3508 | JPEG | 1,93 MB | 1,93 MB | 7,73 MB |
+| İdeal | 1574 × 2227 | JPEG | 789 KB | 777 KB | 2,82 MB |
+| Orta | 1050 × 1485 | JPEG | 259 KB | 250 KB | 992 KB |
+| Küçük | 525 × 743 | JPEG | 64 KB | 60 KB | 192 KB |
+
+Ekran görüntüsü (`app1.png`, 2576 × 1416 PNG, 333 KB): İdeal basamağı yeniden örnekleyince
+PNG **büyüyordu** (455 KB > 333 KB; keskin kenarlar ara tonlara dönüşüp sıkışmayı bozuyor).
+`kaliteye_indir` artık küçültme dosyayı büyütüyorsa orijinali koruyor: İdeal = Orijinal =
+309 KB `.udf`. Orta 228 KB, Küçük 71 KB.
+
+`docs/karsilastirma.png`: taranmış sayfanın aynı bölgesi (sol 25 mm, üst 118 mm, 78 × 30 mm)
+üç basamaktan kesilip aynı ekran ölçüsüne getirildi. Küçük Boyut'ta harfler bulanık; İdeal ile
+Orijinal ayırt edilmiyor.
+
+### UDE zorunlu
+
+"UDE olmadan da çalışır" davranışı kaldırıldı: `udfde_ac` önce `ude_kurulu_mu()` bakıyor, UDE
+yoksa belge üretmeden hata döndürüyor; UDE açılamazsa (dosya yazılmış olsa da) hata dönüyor.
+Arayüz açılışta UDE'yi bulamazsa durum satırına bunu yazıyor ve **UDF'de aç** düğmesini hiç
+açmıyor. `UretimSonucu.ude_acildi` alanı silindi.
+
+### Klasörü aç
+
+Durum satırındaki bağlantı yerine büyük düğmenin altında her zaman etkin küçük bir düğme.
+Son üretilen belge varsa onu Gezgin'de seçili gösteriyor (`revealItemInDir`), yoksa kaydetme
+klasörünü açıyor (`klasoru_ac`: klasör yoksa önce oluşturuyor).
+
+### Kendini güncelleme
+
+- Açılışta (ayar açıksa, varsayılan açık) 2,5 sn sonra arka planda `guncelleme_denetle`;
+  yeni sürüm varsa başlık altında şerit: **Güncelle** / **Daha sonra**.
+- **Güncelle** ve Ayarlar'daki **Şimdi denetle ve güncelle**: indir → `%TEMP%\UDF Resimcisi\UDF-Resimcisi-kurulum.exe`
+  → `/P /R` ile çalıştır (yalnızca ilerleme penceresi; bitince uygulamayı yeniden aç) →
+  uygulama 1,5 sn sonra kendini kapatır. Tauri'nin NSIS şablonu `/P` kipinde çalışan
+  uygulamayı kendisi de kapatıyor, `/R` ile yeniden başlatıyor.
+- Sürüm adresi `UDF_RESIMCISI_SURUM_ADRESI` ortam değişkeniyle yerel bir sunucuya
+  yönlendirilebiliyor; uçtan uca sınama bununla yapıldı (aşağıda).
+
+Uçtan uca sınama (bu bilgisayarda kurulu 1.5.0 üzerinde): yerel bir Node sunucusu
+`/latest.json` için `tag_name: v9.9.9` ve kurulum dosyası olarak 1.6.0'ın NSIS paketini verdi.
+1.6.0'ın taşınabilir sürümü ortam değişkeniyle açıldı.
+
+| Adım | Gözlem |
+|---|---|
+| Açılıştan 2,5 sn sonra | Sunucu günlüğü: `GET /latest.json` (User-Agent `UDF-Resimcisi`); pencerede şerit: "Yeni sürüm v9.9.9 hazır (kullandığınız: 1.6.0). Güncelle · Daha sonra" |
+| **Güncelle** tıklandı | `GET /latest.json` + `GET /UDF-Resimcisi-kurulum.exe`; dosya `%TEMP%\UDF Resimcisi\UDF-Resimcisi-kurulum.exe` (2.047.637 B) olarak indi |
+| ~5 sn sonra | Taşınabilir süreç kapanmış, kurucu bitmiş (soru sormadı), `%LOCALAPPDATA%\UDF Resimcisi\udf-resimcisi.exe` **1.5.0 → 1.6.0**, uygulama o yoldan yeniden açılmış (`/R`) |
+| Yeniden açılan uygulama | Ortam değişkeni kurucudan miras kaldığı için sahte sunucuya yeniden sordu ve şeridi yine gösterdi — sınama ortamının yan etkisi, gerçek kullanımda değişken yok |
+
+Ayarlar dosyası ve kayıt defteri değeri korunmuş; belge üretimi 1.6.0'da yeniden denendi.
+
+### Arayüz doğrulaması (ekran görüntüleriyle)
+
+Gerçek pencere `PrintWindow` ile yakalandı: yeni alt başlık; listede **İdeal Boyut**; boyut
+satırı "Üretilecek dosya boyutu: 776 KB · Dilekçeye yapıştırıldığında yaklaşık 2.8 MB"
+(2480 × 3508 tarama); **UDF'de aç** sonrası yeşil "Belge hazır (776 KB) ve UYAP Doküman
+Editörü'nde açıldı." ve UDE'de belge; büyük düğmenin altında ortalı küçük **Klasörü aç**
+(tıklanınca Gezgin `Belgelerim\UDF Resimcisi`'ni açtı); Ayarlar'da **Açılışta yeni sürümü
+denetle** kutusu ve **Şimdi denetle ve güncelle** düğmesi, sürüm 1.6.0. Tuzak: UDE
+penceresinin başlığında da "UDF Resimcisi" (klasör adı) geçtiği için pencereyi başlıktan
+aramak yanlış pencereyi buluyor; tıklamalar pencere tanıtıcısıyla (hwnd) yapıldı.

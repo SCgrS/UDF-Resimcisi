@@ -146,6 +146,27 @@ button.baglanti {
 }
 button.baglanti:hover:not(:disabled) { color: var(--metin); background: none; }
 button.birincil { font-size: 15px; font-weight: 600; padding: 11px 30px; }
+/* Küçük, dikkat çekmeyen yardımcı düğme ("Klasörü aç", "Güncelle"). */
+button.kucuk {
+  font-size: 12.5px;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--alt-metin);
+  border-color: var(--cizgi);
+}
+button.kucuk:hover:not(:disabled) { background: var(--vurgu-zemin); color: var(--vurgu); border-color: var(--vurgu); }
+
+/* --- açılıştaki yeni sürüm çubuğu --- */
+.cubuk {
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  background: var(--vurgu-zemin);
+  border: 1px solid var(--vurgu);
+  border-radius: 8px;
+  padding: 7px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.cubuk .kucuk { color: var(--vurgu); border-color: var(--vurgu); }
 
 /* --- liste --- */
 .bolum-basligi { display: flex; align-items: center; justify-content: space-between; }
@@ -179,6 +200,8 @@ button.birincil { font-size: 15px; font-weight: 600; padding: 11px 30px; }
 }
 /* Bilgi satırlarından sonra gelen düğme biraz nefes alsın. */
 .eylem .birincil { margin-top: 6px; }
+/* "Klasörü aç" büyük düğmenin altında, ayrı satırda, göze batmadan durur. */
+.eylem .kucuk { margin-top: 2px; }
 .boyut { margin: 0; color: var(--alt-metin); font-size: 13px; }
 .durum { margin: 0; color: var(--alt-metin); }
 .durum.iyi { color: var(--iyi); font-weight: 600; }
@@ -235,6 +258,8 @@ input[type="text"] {
 }
 .yol-satiri { display: flex; gap: 8px; flex: 1; min-width: 260px; }
 .yol-satiri input { flex: 1; }
+/* Güncelleme sonucu, etiket hizasından başlayarak kendi satırında. */
+.guncelleme-durum { flex-basis: 100%; padding-left: 142px; margin: 0; }
 
 /* --- ayarlar penceresi --- */
 .perde {

@@ -1,8 +1,7 @@
 //! UYAP Doküman Editörü (UDE) ile etkileşim — yalnızca Windows.
 //!
-//! Uygulama UDE **olmadan da** çalışır: belge her hâlükârda üretilip diske yazılır. UDE yalnızca
-//! üretilen belgeyi açmak için kullanılır; kurulu değilse dosya yine kaydedilir ve kullanıcıya
-//! nereye kaydedildiği söylenir.
+//! Uygulama UDE **olmadan çalışmaz**: belge üretilir üretilmez UDE'de açılır, kullanıcı oradan
+//! kopyalayıp dilekçesine yapıştırır. UDE bulunamazsa arayüz üretme düğmesini hiç açmaz.
 //!
 //! Ölçülmüş davranış: `.udf` dosya ilişkisi UDE'yi
 //! `getNewWPInstance EDITOR_TYPE_DOCUMENT "%1" "%~s1"` argümanlarıyla çağırır. Bu jetonlar
@@ -109,6 +108,12 @@ pub fn klasorde_goster(path: &Path) {
     let _ = std::process::Command::new("explorer")
         .arg(format!("/select,{}", path.display()))
         .spawn();
+}
+
+/// Klasörü Explorer'da açar.
+pub fn klasoru_ac(path: &Path) -> Result<()> {
+    std::process::Command::new("explorer").arg(path).spawn()?;
+    Ok(())
 }
 
 #[cfg(test)]

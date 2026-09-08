@@ -1,39 +1,83 @@
 # UDF Resimcisi
 
-Bir fotoğrafı ya da ekran görüntüsünü, çözünürlüğünü bozmadan `.udf` belgesine koyan Windows
-uygulaması. UYAP'a evrak yükleyen avukat ve büro çalışanları için: taranmış bir dilekçeyi,
-telefonla çekilmiş bir belgeyi ya da ekran görüntüsünü birkaç saniyede UYAP'ın kabul ettiği
-belge biçimine çevirir.
+Bir fotoğrafı, taranmış bir sayfayı ya da ekran görüntüsünü **ideal çözünürlükte, kalitesini
+koruyarak** `.udf` belgesine koyan Windows uygulaması. Belge UYAP Doküman Editörü'nde (UDE)
+açılır; oradan kopyalayıp dilekçenize yapıştırırsınız. UYAP'a evrak hazırlayan avukatlar ve
+büro çalışanları için.
 
-UYAP Doküman Editörü (UDE) bir resmi **Ekle → Resim** yoluyla belgeye alırken onu sayfadaki
-görüntüleme boyutuna, yaklaşık 72 DPI'a küçültür: 3000 × 2000 piksellik bir tarama belgeye
-524 × 349 piksel olarak girer ve ince yazılar okunmaz olur. Ekleme penceresindeki **Kayıpsız**
-seçeneği bunu değiştirmez. UDF Resimcisi `.udf` dosyasını kendisi yazdığı için o küçültme hiç
-çalışmaz. Ölçümlerin tamamı [DOGRULAMA.md](DOGRULAMA.md) dosyasında.
+![UDF Resimcisi penceresi](docs/ekran.png)
+
+Üç şeyi çözer:
+
+1. **Okunmaz resim sorunu.** UDE bir resmi **Ekle → Resim** yoluyla belgeye alırken onu
+   sayfadaki görüntüleme boyutuna, yaklaşık 72 DPI'a küçültür: 3000 × 2000 piksellik bir
+   tarama belgeye 524 × 349 piksel olarak girer, ince yazılar okunmaz olur. Ekleme
+   penceresindeki **Kayıpsız** seçeneği bunu değiştirmez. UDF Resimcisi `.udf` dosyasını
+   kendisi yazdığı için o küçültme hiç çalışmaz.
+2. **Şişkin dosya sorunu.** Varsayılan **İdeal Boyut**, gözle görülür hiçbir fark
+   bırakmadan dosyayı küçültür: 3,5 MB'lık telefon fotoğrafından 300 KB'lık `.udf` çıkar.
+3. **Kopyala-yapıştır.** Üretilen belge UDE'de açılır; **Ctrl+A**, **Ctrl+C** ile
+   kopyalayıp dilekçenizde **Ctrl+V** ile istediğiniz yere yapıştırırsınız.
 
 > Bu uygulama UYAP veya HAVELSAN ile ilişkili değildir. Yalnızca birlikte çalışabilirlik için
 > UDF dosyası üretir; UDE'ye ait hiçbir kod içermez.
 
+## İdeal Boyut ile Orijinal Boyut arasında fark var mı?
+
+Gözle görülür bir fark yok. Aşağıda aynı taranmış dilekçe sayfasının aynı bölgesi üç kalite
+basamağında, ekranda büyütülmüş hâliyle görülüyor. Belgede üçü de aynı yeri kaplar; değişen
+yalnızca içindeki piksel sayısıdır. Soldaki, UDE'nin kendi **Ekle → Resim** yolunun ürettiği
+kaliteye denk gelir.
+
+![Küçük, İdeal ve Orijinal Boyut karşılaştırması](docs/karsilastirma.png)
+
+Ölçülmüş dosya boyutları (ölçüm aracı ve yöntem [DOGRULAMA.md](DOGRULAMA.md) içinde):
+
+| Girdi | Basamak | Belgeye giren resim | `.udf` dosyası | Dilekçeye yapıştırıldığında |
+| --- | --- | --- | --- | --- |
+| 12 MP telefon fotoğrafı (4000 × 3000, 3,5 MB JPEG) | Orijinal Boyut | 4000 × 3000 px | 3,55 MB | ≈ 13,4 MB |
+| | **İdeal Boyut** | 1575 × 1181 px | **300 KB** | ≈ 1,6 MB (ölçüldü: 1,65 MB) |
+| | Orta Boyut | 1050 × 788 px | 68 KB | ≈ 0,5 MB |
+| | Küçük Boyut | 526 × 395 px | 13 KB | ≈ 0,1 MB |
+| Taranmış A4 sayfa (2480 × 3508, 300 DPI, 1,9 MB JPEG) | Orijinal Boyut | 2480 × 3508 px | 1,93 MB | ≈ 7,7 MB |
+| | **İdeal Boyut** | 1574 × 2227 px | **777 KB** | ≈ 2,8 MB |
+| | Orta Boyut | 1050 × 1485 px | 250 KB | ≈ 1,0 MB |
+| | Küçük Boyut | 525 × 743 px | 60 KB | ≈ 0,2 MB |
+
+### Yapıştırınca dosya neden büyüyor?
+
+Son sütun önemli: UDE, panodan yapıştırılan **her resmi PNG olarak yeniden kodlar** — bizim
+dosyada JPEG olsa bile. Bu yüzden dilekçenizin büyüyeceği miktar `.udf` dosyasının boyutu
+değil, resmin **piksel sayısıdır**. 300 KB'lık İdeal Boyut belgesi dilekçeye yaklaşık 1,6 MB
+olarak girer; Orijinal Boyut'taki aynı fotoğraf 13 MB'a çıkıp UYAP'ın yaklaşık **10 MB** evrak
+sınırını aşar. Word'den çevrilen belgelerde de resim genellikle benzer piksel sayısıyla PNG
+olarak gömüldüğü için iki yol aynı büyüklükte çıkabilir; fark, resmin okunabilirliğinde ve
+`.udf` dosyasını doğrudan yüklediğinizde ortaya çıkar.
+
+Uygulama iki sayıyı da gösterir: kalite listesinin altındaki satırda üretilecek dosyanın
+boyutu ve dilekçeye yapıştırıldığında yaklaşık ne kadar yer tutacağı yazar. Ekran
+görüntülerinde İdeal Boyut zaten küçük olan orijinali büyütmez; orijinal olduğu gibi kalır.
+
 ## Ne yapar
 
-- Sürüklenen, seçilen ya da panodan yapıştırılan resimleri tek bir `.udf` belgesine koyar.
-- PNG ve JPEG girdilerinde **Orijinal Boyut** seçiliyken tek bir bayt bile değiştirilmez.
-- Kalite listesi dosya boyutunu küçültür ama resmin sayfada kapladığı yeri değiştirmez.
+- Sürüklenen, seçilen ya da panodan yapıştırılan resimleri tek bir `.udf` belgesine koyar ve
+  UDE'de açar.
+- Varsayılan **İdeal Boyut**, gözle görülür fark bırakmadan dosyayı 10 kata kadar küçültür.
+  **Orijinal Boyut** seçilirse PNG ve JPEG girdilerinde tek bir bayt bile değiştirilmez.
+- Kalite listesi resmin sayfada kapladığı yeri değiştirmez; yalnızca dosya boyutunu belirler.
 - Telefon fotoğraflarındaki EXIF yön bilgisini okur; gerekiyorsa resmi kayıpsız PNG'ye
   çevirip düzeltir.
-- Resimler eklendikçe üretilecek dosyanın boyutunu gerçekten hesaplayıp gösterir.
-- Belgeyi kaydetme klasörüne yazar ve UDE kuruluysa açar; UDE yoksa yine kaydeder.
+- Resimler eklendikçe üretilecek dosyanın boyutunu gerçekten hesaplayıp gösterir; dilekçeye
+  yapıştırıldığında kaplayacağı yeri de yazar.
 - Birden çok resim tek belgeye eklendiğinde araya boş satır ya da sayfa sonu koyar.
+- Yeni sürüm çıktığında haber verir ve tek tıkla kendini günceller.
 
 ## Kurulum
 
 ### [⬇ UDF-Resimcisi-kurulum.exe indir](https://github.com/SCgrS/UDF-Resimcisi/releases/latest/download/UDF-Resimcisi-kurulum.exe)
 
-Tek dosya, 2 MB. Windows 10 ve üzeri, 64 bit; yönetici hakkı gerekmez. UDE kurulu olmasa da
-çalışır.
-
-> Depo özel (private) olduğu için indirme bağlantısı yalnızca GitHub'da oturumu açık olan
-> yetkili hesaplarda çalışır. Tüm sürümler: [Sürümler sayfası](https://github.com/SCgrS/UDF-Resimcisi/releases)
+Tek dosya, 2 MB. Windows 10 ve üzeri, 64 bit; yönetici hakkı gerekmez. **UYAP Doküman
+Editörü kurulu olmalıdır**: uygulama belgeyi UDE'de açar, UDE yoksa çalışmaz.
 
 1. Yukarıdaki bağlantıya tıklayıp dosyayı indirin.
 2. İndirilen `UDF-Resimcisi-kurulum.exe` dosyasına **çift tıklayın**.
@@ -47,27 +91,34 @@ Kurulum sistem klasörlerine bir şey yazmaz:
 - Başlat menüsüne **UDF Resimcisi** kısayolu eklenir.
 - Windows'un "Uygulamalar ve özellikler" listesine kaydedilir.
 
-Kurulum istemiyorsanız aynı sürüm sayfasında iki seçenek daha var:
-`UDF-Resimcisi-tasinabilir.exe` (5 MB; indirin, çift tıklayın, çalışır) ve
-`UDF-Resimcisi-x64.msi` (3 MB; kurumsal dağıtım için).
+Kurulum istemiyorsanız [Sürümler sayfasında](https://github.com/SCgrS/UDF-Resimcisi/releases)
+iki seçenek daha var: `UDF-Resimcisi-tasinabilir.exe` (5 MB; indirin, çift tıklayın, çalışır)
+ve `UDF-Resimcisi-x64.msi` (3 MB; kurumsal dağıtım için).
 
 ### Güncelleme
 
-Yeni sürümün `UDF-Resimcisi-kurulum.exe` dosyasını indirip çalıştırmanız yeterli; ayarlarınıza
-dokunulmaz. **Ayarlar**'daki **Güncellemeleri denetle** düğmesi sürüm bilgisini GitHub'dan
-sorar; depo özel olduğu sürece bu sorgu yanıt alamaz ve düğme "Sürüm bilgisi alınamadı" der.
+Uygulama kendini günceller. Her açılışta GitHub'dan son sürümü sorar; yeni sürüm varsa
+pencerenin üstünde bir şerit çıkar. **Güncelle**'ye bastığınızda kurulum dosyası indirilir,
+kısa bir ilerleme penceresiyle kurulur ve uygulama yeni sürümüyle yeniden açılır; ayarlarınıza
+dokunulmaz. **Daha sonra** derseniz şerit kapanır, bir sonraki açılışta yeniden hatırlatılır.
+
+Beklemek istemiyorsanız **Ayarlar → Şimdi denetle ve güncelle** aynı işi hemen yapar.
+Açılıştaki denetimi **Ayarlar → Açılışta yeni sürümü denetle** kutusundan kapatabilirsiniz;
+o zaman yalnızca düğmeye bastığınızda sorulur.
 
 ## Kullanım
 
 1. Resimleri pencereye sürükleyin ya da **Dosya seç**'e basın. Panoda bir resim varsa
    (örneğin `Win+Shift+S` ile alınmış ekran görüntüsü) **Ctrl+V** ile veya pencerede sağ
    tıklayıp **Yapıştır** ile ekleyin.
-2. İsterseniz düğmenin üstündeki kalite listesinden bir basamak seçin.
-3. **UDF'de aç**'a basın.
+2. Kalite listesinde **İdeal Boyut** seçili gelir; çoğu iş için değiştirmeniz gerekmez.
+3. **UDF'de aç**'a basın. Belge kaydetme klasörüne yazılır ve UDE'de açılır.
+4. UDE'de **Ctrl+A** ile tümünü seçin, **Ctrl+C** ile kopyalayın; dilekçenizi açıp
+   istediğiniz yere **Ctrl+V** ile yapıştırın. Belgeyi tek başına da kullanabilirsiniz:
+   `.udf` dosyası UYAP'a doğrudan yüklenebilir.
 
-Belge kaydetme klasörüne yazılır; UDE kuruluysa hemen açılır, kurulu değilse "Belge
-kaydedildi … açılamadı" yazar. Durum satırındaki **Klasörü aç** bağlantısı dosyayı Gezgin'de
-seçili olarak gösterir.
+Büyük düğmenin altındaki **Klasörü aç**, kaydetme klasörünü Gezgin'de açar; az önce bir belge
+ürettiyseniz o dosya seçili gelir.
 
 - Desteklenen girdiler: PNG, JPEG, WEBP, BMP, TIFF, GIF (yalnızca ilk kare). PNG ve JPEG
   olduğu gibi gömülür; diğerleri kayıpsız PNG'ye çevrilir.
@@ -76,10 +127,12 @@ seçili olarak gösterir.
 - Aynı resim birden çok kez eklenebilir; belgeye eklediğiniz sırayla girer.
 - Dosya adı ilk resmin adından türetilir (`tarama.png` → `tarama.udf`); panodan gelen
   resimlerde `resimler-YYYYAAGG-SSDD.udf` olur. Aynı ad varsa ` (2)`, ` (3)` eklenir.
-- Kalite listesinin altındaki **Üretilecek dosya boyutu** satırı tahmin değildir: belge
-  gerçekten kurulup ölçülür, her ekleme ve kalite değişiminde yenilenir.
+- Kalite listesinin altındaki üretilecek dosya boyutu satırı tahmin değildir: belge gerçekten
+  kurulup ölçülür, her ekleme ve kalite değişiminde yenilenir. Yanındaki "dilekçeye
+  yapıştırıldığında" değeri ise UDE'nin PNG kodlamasının kestirimidir; ölçümlerde gerçek
+  değerin %2 üstünde çıktı.
 
-### Kalite
+### Kalite basamakları
 
 Listedeki basamaklar dosyanın büyüklüğünü belirler. **Bu bir ölçek ayarı değildir:** resim her
 basamakta sayfada aynı yeri kaplar, yalnızca içindeki piksel yoğunluğu (ayrıntı) azalır.
@@ -87,18 +140,13 @@ basamakta sayfada aynı yeri kaplar, yalnızca içindeki piksel yoğunluğu (ayr
 | Seçenek | Belgeye giren bitmap (3000 × 2000 px girdi için) |
 | --- | --- |
 | **Orijinal Boyut** | 3000 × 2000 px — baytlara hiç dokunulmaz |
-| **Optimal Boyut** (varsayılan) | 1574 × 1049 px |
+| **İdeal Boyut** (varsayılan) | 1574 × 1049 px — punto başına 3 piksel, sayfada ≈ 216 DPI |
 | **Orta Boyut** | 1050 × 700 px |
 | **Küçük Boyut** | 526 × 350 px — UDE'nin kendi **Ekle → Resim** çıktısıyla (524 × 349) eş değer |
 
-**Optimal Boyut** ekranda ve baskıda Orijinal Boyut'tan ayırt edilmez, dosya ise 10 kata kadar
-küçülür. Tek bir pikselin bile korunması gerekiyorsa **Orijinal Boyut**'u seçin. Sayfaya zaten
-sığan küçük resimler hiçbir basamakta değiştirilmez; büyütme yapılmaz.
-
-UYAP'a yüklenebilen evrak üst sınırı yaklaşık **10 MB**'tır. Boyut satırı bu sınırı aşıyorsa
-listeden bir basamak inin. Ölçülmüş örnek: 12 MP telefon fotoğrafı (4000 × 3000 JPEG, 3,5 MB)
-Orijinal Boyut'ta 3,5 MB'lık `.udf` üretir; `.udf` bir ZIP arşivi olduğu için base64'ün
-şişirdiği yer geri kazanılır.
+Tek bir pikselin bile korunması gerekiyorsa **Orijinal Boyut**'u seçin. Dilekçe 10 MB sınırına
+yaklaşıyorsa bir basamak inin. Sayfaya zaten sığan küçük resimler hiçbir basamakta
+değiştirilmez; büyütme yapılmaz.
 
 ## Ayarlar
 
@@ -109,7 +157,8 @@ Sağ üstteki çark düğmesi **Ayarlar** penceresini açar. Her değişiklik an
 | **Tema** | **Sistem** / **Açık** / **Koyu**. Sistem, Windows'un tema ayarını izler. |
 | **Sayfa düzeni** → **Her resim ayrı sayfada** | Kapalıyken (varsayılan) resimler arasına bir boş satır konur; açıkken her resim yeni sayfaya geçer. |
 | **Kaydetme klasörü** → **Değiştir** | Belgelerin yazıldığı klasör. Varsayılan `Belgelerim\UDF Resimcisi`. |
-| **Güncelleme** → **Güncellemeleri denetle** | GitHub'dan son sürümü sorar; yeni sürüm bulursa **İndir ve kur** düğmesi çıkar. |
+| **Güncelleme** → **Açılışta yeni sürümü denetle** | Açıkken (varsayılan) uygulama her açılışta son sürümü sorar ve yeni sürüm varsa şerit gösterir. |
+| **Güncelleme** → **Şimdi denetle ve güncelle** | Hemen sorar; yeni sürüm varsa indirip kurar ve uygulamayı yeniden açar. |
 
 Pencerenin altında 10 MB hatırlatması, kalite basamakları hakkında kısa bir not, sürüm numarası
 ve geliştirici bağlantısı bulunur.
@@ -122,9 +171,9 @@ Belge üretimi tamamen yereldir; resimleriniz hiçbir yere gönderilmez, telemet
 - Üretilen belgeler: seçtiğiniz kaydetme klasörü (varsayılan `Belgelerim\UDF Resimcisi`).
 - Kayıt defteri: yalnızca `HKCU\Software\UDF Resimcisi\CiktiKlasoru` değeri; kaldırıcı
   hangi klasörü temizleyeceğini buradan öğrenir.
-- Ağ: yalnızca siz **Güncellemeleri denetle**'ye bastığınızda `api.github.com`'a tek bir sürüm
-  sorgusu; **İndir ve kur** derseniz kurulum dosyası `%TEMP%\UDF Resimcisi` altına indirilip
-  çalıştırılır. Kendiliğinden hiçbir bağlantı kurulmaz.
+- Ağ: yalnızca sürüm denetiminde `api.github.com`'a tek bir sorgu (açılışta, kapatılabilir;
+  ve düğmeye bastığınızda). Güncelleme derseniz kurulum dosyası GitHub'dan
+  `%TEMP%\UDF Resimcisi` altına indirilip çalıştırılır. Resimleriniz ağa hiçbir zaman çıkmaz.
 
 ## Kaldırma
 
@@ -138,8 +187,8 @@ kayıt defteri değeri yukarıdaki yerlerde kalır.
 
 ## Bilinen sınırlar
 
-- Yalnızca Windows. Belgeyi açmak için UDE gerekir; UDE yoksa belge yine üretilir.
-- Depo özel olduğu sürece uygulama içi güncelleme denetimi çalışmaz; yeni sürümü elle indirin.
+- Yalnızca Windows ve yalnızca UYAP Doküman Editörü kuruluyken. UDE bulunamazsa uygulama
+  bunu söyler ve belge üretmez.
 - Kod imzalama sertifikası olmadığından SmartScreen uyarısı her yeni sürümde çıkar.
 - GIF'lerin yalnızca ilk karesi alınır. WEBP, BMP, TIFF ve GIF, UDE'nin tanımadığı biçimler
   olduğu için PNG'ye çevrilir; çevirme kayıpsızdır ama dosya boyutu değişebilir.
@@ -156,8 +205,9 @@ npm run tauri build
 ```
 
 Kurulum paketleri `src-tauri/target/release/bundle/` altına (MSI ve NSIS), taşınabilir sürüm
-`src-tauri/target/release/udf-resimcisi.exe` olarak çıkar. Yardımcı ölçüm araçları
-[tools/README.md](tools/README.md) dosyasında anlatılıyor.
+`src-tauri/target/release/udf-resimcisi.exe` olarak çıkar. Bu sayfadaki sayıları üreten ölçüm
+aracı `src-tauri/examples/olcum.rs`; öteki yardımcılar [tools/README.md](tools/README.md)
+dosyasında anlatılıyor.
 
 ## Teşekkür
 

@@ -25,6 +25,8 @@ pub struct Kayit {
     /// Kalite basamağı başına bir kez üretilen indirgenmiş sürüm. Boyut satırı her
     /// seçim değişiminde yeniden hesaplandığı için aynı resmi tekrar tekrar ölçeklemeyelim.
     onbellek: HashMap<Kalite, ImageSpec>,
+    /// Basamak başına, UDE'ye yapıştırıldığında kaplayacağı yer (PNG kestirimi, bayt).
+    yapistirma_onbellek: HashMap<Kalite, usize>,
 }
 
 impl Kayit {
@@ -33,8 +35,19 @@ impl Kayit {
             ad,
             resim,
             onbellek: HashMap::new(),
+            yapistirma_onbellek: HashMap::new(),
         }
     }
+}
+
+/// Boyut satırının iki sayısı.
+#[derive(Debug, Serialize)]
+pub struct BoyutBilgisi {
+    /// Üretilecek `.udf` dosyası (gerçekten kurulup ölçülür).
+    pub dosya: u64,
+    /// Belge UDE'de açılıp dilekçeye yapıştırıldığında resimlerin kaplayacağı yer (yaklaşık;
+    /// UDE her resmi PNG olarak yeniden kodlar).
+    pub yapistirma: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -63,9 +76,10 @@ pub struct YuklemeSonucu {
 pub struct UretimSonucu {
     pub yol: String,
     pub boyut_bayt: u64,
-    /// UDE kurulu değilse belge yine kaydedilir, sadece açılamaz.
-    pub ude_acildi: bool,
 }
+
+const UDE_YOK: &str = "UYAP Doküman Editörü bu bilgisayarda bulunamadı. Uygulama onsuz çalışmaz: \
+                       önce UDE'yi kurun, sonra uygulamayı yeniden açın.";
 
 fn hata<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
@@ -104,7 +118,7 @@ pub fn surum() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-/// Arayüz, UDE yoksa "kaydedildi ama açılamadı" beklentisini önceden kurabilsin diye.
+/// Arayüz, UDE yoksa üretme düğmesini hiç açmasın diye.
 #[tauri::command]
 pub fn ude_kurulu_mu() -> bool {
     #[cfg(windows)]
@@ -318,23 +332,54 @@ fn belge_uret(
     Ok((bytes, temiz_dosya_adi(&govde)))
 }
 
-/// Listedeki resimlerden üretilecek `.udf` dosyasının boyutu (bayt).
-/// Gerçekten belge kurup ölçer — tahmin değil, kesin değer.
+/// Listedeki resimlerin, seçili basamakta UDE'ye yapıştırıldığında kaplayacağı yer.
+/// `belge_uret` hemen önce çağrıldığı için indirgenmiş sürümler önbellekte hazırdır.
+fn yapistirma_toplami(kalite: Kalite, oturum: &State<'_, Oturum>) -> Result<u64, String> {
+    let mut liste = oturum.resimler.lock().map_err(hata)?;
+    let mut toplam = 0u64;
+    for k in liste.iter_mut() {
+        if let Some(b) = k.yapistirma_onbellek.get(&kalite) {
+            toplam += *b as u64;
+            continue;
+        }
+        let b = {
+            let spec = if kalite == Kalite::Orijinal {
+                &k.resim.spec
+            } else {
+                k.onbellek.get(&kalite).unwrap_or(&k.resim.spec)
+            };
+            image_io::yapistirma_boyutu(spec).map_err(hata)?
+        };
+        k.yapistirma_onbellek.insert(kalite, b);
+        toplam += b as u64;
+    }
+    Ok(toplam)
+}
+
+/// Boyut satırı: üretilecek `.udf` dosyasının boyutu (gerçekten belge kurup ölçer — tahmin
+/// değil) ve dilekçeye yapıştırıldığında kaplayacağı yer (yaklaşık).
 #[tauri::command]
 pub async fn belge_boyutu(
     ayri_sayfa: bool,
     kalite: Kalite,
     oturum: State<'_, Oturum>,
-) -> Result<u64, String> {
+) -> Result<BoyutBilgisi, String> {
     let bos = oturum.resimler.lock().map_err(hata)?.is_empty();
     if bos {
-        return Ok(0);
+        return Ok(BoyutBilgisi {
+            dosya: 0,
+            yapistirma: 0,
+        });
     }
     let (bytes, _) = belge_uret(ayri_sayfa, kalite, &oturum)?;
-    Ok(bytes.len() as u64)
+    let yapistirma = yapistirma_toplami(kalite, &oturum)?;
+    Ok(BoyutBilgisi {
+        dosya: bytes.len() as u64,
+        yapistirma,
+    })
 }
 
-/// Belgeyi kaydetme klasörüne yazar ve (UDE kuruluysa) açar.
+/// Belgeyi kaydetme klasörüne yazar ve UDE'de açar. UDE yoksa hiç başlamaz.
 #[tauri::command]
 pub async fn udfde_ac(
     ayri_sayfa: bool,
@@ -342,6 +387,9 @@ pub async fn udfde_ac(
     cikti_klasoru: String,
     oturum: State<'_, Oturum>,
 ) -> Result<UretimSonucu, String> {
+    if !ude_kurulu_mu() {
+        return Err(UDE_YOK.to_string());
+    }
     let (bytes, govde) = belge_uret(ayri_sayfa, kalite, &oturum)?;
     let klasor = PathBuf::from(&cikti_klasoru);
 
@@ -352,16 +400,17 @@ pub async fn udfde_ac(
         std::fs::write(&yol, &bytes)
             .map_err(|e| format!("Dosya yazılamadı ({}): {e}", yol.display()))?;
 
-        // UDE yoksa belge yine üretilmiş olur; yalnızca açılamaz.
         #[cfg(windows)]
-        let acildi = crate::ude::belgeyi_ac(&yol).is_ok();
-        #[cfg(not(windows))]
-        let acildi = false;
+        crate::ude::belgeyi_ac(&yol).map_err(|e| {
+            format!(
+                "Belge kaydedildi ({}) ama UYAP Doküman Editörü açılamadı: {e}",
+                yol.display()
+            )
+        })?;
 
         Ok(UretimSonucu {
             yol: yol.to_string_lossy().to_string(),
             boyut_bayt: bytes.len() as u64,
-            ude_acildi: acildi,
         })
     })
     .await
@@ -376,15 +425,31 @@ pub fn klasorde_goster(yol: String) {
     let _ = yol;
 }
 
+/// "Klasörü aç" düğmesi: kaydetme klasörünü Gezgin'de açar, yoksa önce oluşturur.
+#[tauri::command]
+pub fn klasoru_ac(klasor: String) -> Result<(), String> {
+    let p = PathBuf::from(&klasor);
+    std::fs::create_dir_all(&p)
+        .map_err(|e| format!("Klasör oluşturulamadı ({}): {e}", p.display()))?;
+    #[cfg(windows)]
+    crate::ude::klasoru_ac(&p).map_err(hata)?;
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Güncelleme denetimi
 // ---------------------------------------------------------------------------
 
 /// Sürüm bilgisinin çekildiği adres. Depo herkese açık değilse bu adres 404 döner ve
 /// denetim dürüstçe "bilgi alınamadı" der.
-const SURUM_ADRESI: &str = "https://api.github.com/repos/SCgrS/udf-resimcisi/releases/latest";
+const SURUM_ADRESI: &str = "https://api.github.com/repos/SCgrS/UDF-Resimcisi/releases/latest";
 /// Kurulum dosyasının sürümden bağımsız adı (bkz. depo README).
 const KURULUM_DOSYASI: &str = "UDF-Resimcisi-kurulum.exe";
+
+/// Sınama için adres ortam değişkeniyle bir yerel sunucuya yönlendirilebilir.
+fn surum_adresi() -> String {
+    std::env::var("UDF_RESIMCISI_SURUM_ADRESI").unwrap_or_else(|_| SURUM_ADRESI.to_string())
+}
 
 #[derive(Debug, Serialize)]
 pub struct GuncellemeSonucu {
@@ -413,7 +478,7 @@ pub async fn guncelleme_denetle() -> Result<GuncellemeSonucu, String> {
 
     tauri::async_runtime::spawn_blocking(move || {
         // Hata türü büyük olduğu için hemen metne çevriliyor (clippy: result_large_err).
-        let yanit: Result<String, String> = ureq::get(SURUM_ADRESI)
+        let yanit: Result<String, String> = ureq::get(&surum_adresi())
             .set("User-Agent", "UDF-Resimcisi")
             .set("Accept", "application/vnd.github+json")
             .timeout(std::time::Duration::from_secs(15))
@@ -427,8 +492,7 @@ pub async fn guncelleme_denetle() -> Result<GuncellemeSonucu, String> {
                 return GuncellemeSonucu {
                     durum: "ulasilamadi".into(),
                     mesaj: format!(
-                        "Sürüm bilgisi alınamadı. İnternet bağlantınızı denetleyin; \
-                         depo gizliyse sürüm bilgisi dışarıya kapalıdır. ({e})"
+                        "Sürüm bilgisi alınamadı; internet bağlantınızı denetleyin. ({e})"
                     ),
                     bu_surum: bu.clone(),
                     yeni_surum: String::new(),
@@ -493,9 +557,13 @@ pub async fn guncelleme_denetle() -> Result<GuncellemeSonucu, String> {
     .map_err(hata)
 }
 
-/// Kurulum dosyasını indirip çalıştırır. Yalnızca kullanıcı "İndir ve kur" dediğinde çağrılır.
+/// Kurulum dosyasını indirir, sessiz ilerleme penceresiyle çalıştırır ve uygulamayı kapatır;
+/// kurucu bitince (`/R`) uygulamayı yeniden açar. Yalnızca kullanıcı isteğiyle çağrılır.
 #[tauri::command]
-pub async fn guncellemeyi_kur(indirme_adresi: String) -> Result<String, String> {
+pub async fn guncellemeyi_kur(
+    app: tauri::AppHandle,
+    indirme_adresi: String,
+) -> Result<String, String> {
     if indirme_adresi.is_empty() {
         return Err("İndirme adresi yok.".to_string());
     }
@@ -515,9 +583,17 @@ pub async fn guncellemeyi_kur(indirme_adresi: String) -> Result<String, String> 
         let yol = klasor.join(KURULUM_DOSYASI);
         std::fs::write(&yol, &veri).map_err(|e| format!("Kaydedilemedi: {e}"))?;
 
+        // /P: yalnızca ilerleme penceresi, soru sormaz; /R: bitince uygulamayı yeniden aç.
+        // Kurucu çalışan uygulamayı kendisi de kapatır; biz yine de dosya kilidi kalmasın diye
+        // kısa bir gecikmeyle çıkıyoruz (arayüz bu arada "kuruluyor" mesajını gösterir).
         std::process::Command::new(&yol)
+            .args(["/P", "/R"])
             .spawn()
             .map_err(|e| format!("Kurulum başlatılamadı: {e}"))?;
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+            app.exit(0);
+        });
         Ok(yol.to_string_lossy().to_string())
     })
     .await

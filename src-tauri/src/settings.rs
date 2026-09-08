@@ -30,6 +30,8 @@ pub struct Ayarlar {
     pub ayri_sayfa: bool,
     pub cikti_klasoru: String,
     pub tema: Tema,
+    /// Açılışta GitHub'dan yeni sürüm sorulsun mu. Kapalıysa yalnızca Ayarlar'daki düğme sorar.
+    pub otomatik_guncelleme: bool,
     /// Yazarken her zaman `AYAR_SURUMU` olur; arayüzün göndermesi gerekmez.
     ///
     /// Alan düzeyinde `default` şart: kap düzeyindeki `#[serde(default)]` eksik alanları
@@ -45,6 +47,7 @@ impl Default for Ayarlar {
             ayri_sayfa: false,
             cikti_klasoru: varsayilan_cikti_klasoru().to_string_lossy().to_string(),
             tema: Tema::Sistem,
+            otomatik_guncelleme: true,
             ayar_surumu: AYAR_SURUMU,
         }
     }
@@ -119,6 +122,7 @@ mod tests {
         let a = Ayarlar::default();
         assert!(!a.ayri_sayfa, "ayrı sayfa varsayılan olarak kapalı");
         assert_eq!(a.tema, Tema::Sistem);
+        assert!(a.otomatik_guncelleme, "açılışta sürüm denetimi varsayılan olarak açık");
         assert!(a.cikti_klasoru.ends_with("UDF Resimcisi"));
     }
 
@@ -145,6 +149,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(a.tema, Tema::Sistem, "eksik alanlar varsayılanla dolmalı");
+        assert!(a.otomatik_guncelleme, "1.6 öncesi dosyada alan yok; varsayılan açık");
         assert_eq!(a.ayar_surumu, 0, "eski dosyada sürüm alanı yok");
     }
 

@@ -1,7 +1,7 @@
 [package]
 name = "udf-resimcisi"
-version = "1.5.0"
-description = "Resimden tam çözünürlüklü UDF belgesi üretir"
+version = "1.6.0"
+description = "Resmi ideal çözünürlükte, kalitesini koruyarak UDF belgesine koyar"
 authors = ["Çağrı Şahin"]
 edition = "2021"
 rust-version = "1.77"
