@@ -39,7 +39,7 @@ Editörü kurulu olmalıdır: Uygulama belgeyi UDE'de açar.
    istediğiniz yere **Ctrl+V** ile yapıştırın. Belgeyi tek başına da kullanabilirsiniz:
    `.udf` dosyası UYAP'a doğrudan yüklenebilir.
 
-## UYAP Resim Ekle aracıyla fark ne kadar?
+## UYAP Editör'ün Resim Ekle aracıyla fark ne kadar?
 
 Aynı ekran görüntüsünü (bir ilan sayfası) dilekçeye üç yolla koyduk; aşağıda üçü de UDE'de
 aynı büyütmede görünüyor:
