@@ -188,6 +188,9 @@ button.kucuk:hover:not(:disabled) { background: var(--vurgu-zemin); color: var(-
 .liste .ad { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .liste .olcu { color: var(--alt-metin); font-size: 12.5px; }
 .liste .isaret { color: var(--iyi); font-size: 12.5px; }
+/* Satırın sağında: resmin kendi kalite seçimi ve belgeye gireceği boyut. */
+.liste .ayar { flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.liste .pay { color: var(--alt-metin); font-size: 12px; min-height: 18px; }
 
 /* --- eylem: sayfayla birlikte kayar, ortalanmış --- */
 .eylem {
@@ -227,6 +230,14 @@ button.kucuk:hover:not(:disabled) { background: var(--vurgu-zemin); color: var(-
 .kalite:hover:not(:disabled) { background-color: var(--vurgu-zemin); }
 .kalite:disabled { opacity: .5; cursor: default; }
 .kalite option { color: var(--metin); background: var(--kart); }
+/* Listedeki her resmin kendi seçimi: alttakinin küçüğü. */
+.kalite.satir-kalite {
+  font-size: 12.5px;
+  width: 104px;
+  padding: 4px 26px 4px 10px;
+  background-position: right 9px center;
+  background-size: 10px 7px;
+}
 
 /* --- sağ tık menüsü --- */
 .baglam {

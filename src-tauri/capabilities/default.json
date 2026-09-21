@@ -9,7 +9,10 @@
     "core:webview:allow-internal-toggle-devtools",
     "dialog:allow-open",
     "opener:allow-open-path",
-    "opener:allow-open-url",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://x.com/*" }]
+    },
     "opener:allow-reveal-item-in-dir"
   ]
 }

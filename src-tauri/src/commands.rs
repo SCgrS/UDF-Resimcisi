@@ -22,6 +22,9 @@ pub struct Oturum {
 pub struct Kayit {
     pub ad: String,
     pub resim: YuklenenResim,
+    /// Bu resmin kalite basamağı. Her resim ayrı ayarlanabilir; alttaki genel seçim
+    /// hepsini birden aynı basamağa getirir.
+    pub kalite: Kalite,
     /// Kalite basamağı başına bir kez üretilen indirgenmiş sürüm. Boyut satırı her
     /// seçim değişiminde yeniden hesaplandığı için aynı resmi tekrar tekrar ölçeklemeyelim.
     onbellek: HashMap<Kalite, ImageSpec>,
@@ -30,17 +33,32 @@ pub struct Kayit {
 }
 
 impl Kayit {
-    fn yeni(ad: String, resim: YuklenenResim) -> Self {
+    fn yeni(ad: String, resim: YuklenenResim, kalite: Kalite) -> Self {
         Self {
             ad,
             resim,
+            kalite,
             onbellek: HashMap::new(),
             yapistirma_onbellek: HashMap::new(),
         }
     }
+
+    /// Resmin kendi basamağında belgeye girecek sürümü (basamak başına bir kez üretilir).
+    fn gomulecek(&mut self, sayfa: &udf::model::PageFormat) -> Result<ImageSpec, String> {
+        if self.kalite == Kalite::Orijinal {
+            return Ok(self.resim.spec.clone());
+        }
+        if let Some(hazir) = self.onbellek.get(&self.kalite) {
+            return Ok(hazir.clone());
+        }
+        let indirilmis =
+            image_io::kaliteye_indir(&self.resim.spec, self.kalite, sayfa).map_err(hata)?;
+        self.onbellek.insert(self.kalite, indirilmis.clone());
+        Ok(indirilmis)
+    }
 }
 
-/// Boyut satırının iki sayısı.
+/// Boyut satırının iki sayısı ve her resmin belgedeki payı.
 #[derive(Debug, Serialize)]
 pub struct BoyutBilgisi {
     /// Üretilecek `.udf` dosyası (gerçekten kurulup ölçülür).
@@ -48,6 +66,8 @@ pub struct BoyutBilgisi {
     /// Belge UDE'de açılıp dilekçeye yapıştırıldığında resimlerin kaplayacağı yer (yaklaşık;
     /// UDE her resmi PNG olarak yeniden kodlar).
     pub yapistirma: u64,
+    /// Liste sırasıyla, her resmin kendi basamağında belgeye gömülecek bayt sayısı.
+    pub resimler: Vec<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,6 +82,7 @@ pub struct ResimBilgi {
     pub bayt: usize,
     pub genislik_cm: f64,
     pub yukseklik_cm: f64,
+    pub kalite: Kalite,
     /// Küçük önizleme (data URI). Yalnızca arayüzde göstermek için üretilir; belgeye girmez.
     pub onizleme: String,
 }
@@ -135,9 +156,11 @@ pub fn ude_kurulu_mu() -> bool {
 // Resim listesi
 // ---------------------------------------------------------------------------
 
+/// `kalite`: yeni eklenen resimlerin başlangıç basamağı (alttaki genel seçimin değeri).
 #[tauri::command]
 pub async fn resimleri_yukle(
     yollar: Vec<String>,
+    kalite: Kalite,
     oturum: State<'_, Oturum>,
 ) -> Result<YuklemeSonucu, String> {
     let yuklenenler = tauri::async_runtime::spawn_blocking(move || {
@@ -149,7 +172,7 @@ pub async fn resimleri_yukle(
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| "resim".to_string());
             match image_io::dosyadan(&p) {
-                Ok(r) => cikti.push(Ok(Kayit::yeni(ad, r))),
+                Ok(r) => cikti.push(Ok(Kayit::yeni(ad, r, kalite))),
                 Err(e) => cikti.push(Err(format!("{ad}: {e}"))),
             }
         }
@@ -176,7 +199,10 @@ pub async fn resimleri_yukle(
 }
 
 #[tauri::command]
-pub async fn panodan_al(oturum: State<'_, Oturum>) -> Result<Vec<ResimBilgi>, String> {
+pub async fn panodan_al(
+    kalite: Kalite,
+    oturum: State<'_, Oturum>,
+) -> Result<Vec<ResimBilgi>, String> {
     let r = tauri::async_runtime::spawn_blocking(image_io::panodan)
         .await
         .map_err(hata)?
@@ -184,9 +210,31 @@ pub async fn panodan_al(oturum: State<'_, Oturum>) -> Result<Vec<ResimBilgi>, St
     {
         let mut liste = oturum.resimler.lock().map_err(hata)?;
         let n = liste.len() + 1;
-        liste.push(Kayit::yeni(format!("pano-{n}.png"), r));
+        liste.push(Kayit::yeni(format!("pano-{n}.png"), r, kalite));
     }
     liste_bilgisi(&oturum)
+}
+
+/// Satırdaki seçim: tek bir resmin kalite basamağını değiştirir.
+#[tauri::command]
+pub fn resim_kalitesi(
+    indeks: usize,
+    kalite: Kalite,
+    oturum: State<'_, Oturum>,
+) -> Result<(), String> {
+    let mut liste = oturum.resimler.lock().map_err(hata)?;
+    let k = liste.get_mut(indeks).ok_or("Resim bulunamadı.")?;
+    k.kalite = kalite;
+    Ok(())
+}
+
+/// Alttaki genel seçim: bütün resimleri aynı basamağa getirir; tek tek ayarlar silinir.
+#[tauri::command]
+pub fn kaliteyi_hepsine_uygula(kalite: Kalite, oturum: State<'_, Oturum>) -> Result<(), String> {
+    for k in oturum.resimler.lock().map_err(hata)?.iter_mut() {
+        k.kalite = kalite;
+    }
+    Ok(())
 }
 
 /// Sağ tık menüsündeki "Yapıştır" öğesi soluk mu olsun?
@@ -238,6 +286,7 @@ fn liste_bilgisi(oturum: &State<'_, Oturum>) -> Result<Vec<ResimBilgi>, String> 
                 bayt: k.resim.spec.bytes.len(),
                 genislik_cm: w / PT_PER_CM,
                 yukseklik_cm: h / PT_PER_CM,
+                kalite: k.kalite,
                 onizleme: onizleme_uret(&k.resim.spec),
             }
         })
@@ -300,11 +349,19 @@ fn temiz_dosya_adi(s: &str) -> String {
         .to_string()
 }
 
+/// Her resmi kendi kalite basamağında belgeye girecek hâle getirir (liste sırasıyla).
+fn specleri_hazirla(
+    liste: &mut [Kayit],
+    sayfa: &udf::model::PageFormat,
+) -> Result<Vec<ImageSpec>, String> {
+    liste.iter_mut().map(|k| k.gomulecek(sayfa)).collect()
+}
+
+/// Belgenin baytları, dosya adı gövdesi ve her resmin belgedeki payı (bayt).
 fn belge_uret(
     ayri_sayfa: bool,
-    kalite: Kalite,
     oturum: &State<'_, Oturum>,
-) -> Result<(Vec<u8>, String), String> {
+) -> Result<(Vec<u8>, String, Vec<u64>), String> {
     let (specler, govde) = {
         let sayfa = udf::model::PageFormat::default();
         let mut liste = oturum.resimler.lock().map_err(hata)?;
@@ -312,32 +369,20 @@ fn belge_uret(
             return Err("Önce bir resim ekleyin.".to_string());
         }
         let govde = govde_sec(&liste);
-        let mut specler = Vec::with_capacity(liste.len());
-        for k in liste.iter_mut() {
-            if kalite == Kalite::Orijinal {
-                specler.push(k.resim.spec.clone());
-                continue;
-            }
-            if let Some(hazir) = k.onbellek.get(&kalite) {
-                specler.push(hazir.clone());
-                continue;
-            }
-            let indirilmis = image_io::kaliteye_indir(&k.resim.spec, kalite, &sayfa).map_err(hata)?;
-            k.onbellek.insert(kalite, indirilmis.clone());
-            specler.push(indirilmis);
-        }
-        (specler, govde)
+        (specleri_hazirla(&mut liste, &sayfa)?, govde)
     };
+    let paylar = specler.iter().map(|s| s.bytes.len() as u64).collect();
     let bytes = udf::build_udf(&specler, &secenekler(ayri_sayfa)).map_err(hata)?;
-    Ok((bytes, temiz_dosya_adi(&govde)))
+    Ok((bytes, temiz_dosya_adi(&govde), paylar))
 }
 
-/// Listedeki resimlerin, seçili basamakta UDE'ye yapıştırıldığında kaplayacağı yer.
+/// Listedeki resimlerin, kendi basamaklarında UDE'ye yapıştırıldığında kaplayacağı yer.
 /// `belge_uret` hemen önce çağrıldığı için indirgenmiş sürümler önbellekte hazırdır.
-fn yapistirma_toplami(kalite: Kalite, oturum: &State<'_, Oturum>) -> Result<u64, String> {
+fn yapistirma_toplami(oturum: &State<'_, Oturum>) -> Result<u64, String> {
     let mut liste = oturum.resimler.lock().map_err(hata)?;
     let mut toplam = 0u64;
     for k in liste.iter_mut() {
+        let kalite = k.kalite;
         if let Some(b) = k.yapistirma_onbellek.get(&kalite) {
             toplam += *b as u64;
             continue;
@@ -357,11 +402,10 @@ fn yapistirma_toplami(kalite: Kalite, oturum: &State<'_, Oturum>) -> Result<u64,
 }
 
 /// Boyut satırı: üretilecek `.udf` dosyasının boyutu (gerçekten belge kurup ölçer — tahmin
-/// değil) ve dilekçeye yapıştırıldığında kaplayacağı yer (yaklaşık).
+/// değil), dilekçeye yapıştırıldığında kaplayacağı yer (yaklaşık) ve her resmin payı.
 #[tauri::command]
 pub async fn belge_boyutu(
     ayri_sayfa: bool,
-    kalite: Kalite,
     oturum: State<'_, Oturum>,
 ) -> Result<BoyutBilgisi, String> {
     let bos = oturum.resimler.lock().map_err(hata)?.is_empty();
@@ -369,13 +413,15 @@ pub async fn belge_boyutu(
         return Ok(BoyutBilgisi {
             dosya: 0,
             yapistirma: 0,
+            resimler: Vec::new(),
         });
     }
-    let (bytes, _) = belge_uret(ayri_sayfa, kalite, &oturum)?;
-    let yapistirma = yapistirma_toplami(kalite, &oturum)?;
+    let (bytes, _, resimler) = belge_uret(ayri_sayfa, &oturum)?;
+    let yapistirma = yapistirma_toplami(&oturum)?;
     Ok(BoyutBilgisi {
         dosya: bytes.len() as u64,
         yapistirma,
+        resimler,
     })
 }
 
@@ -383,14 +429,13 @@ pub async fn belge_boyutu(
 #[tauri::command]
 pub async fn udfde_ac(
     ayri_sayfa: bool,
-    kalite: Kalite,
     cikti_klasoru: String,
     oturum: State<'_, Oturum>,
 ) -> Result<UretimSonucu, String> {
     if !ude_kurulu_mu() {
         return Err(UDE_YOK.to_string());
     }
-    let (bytes, govde) = belge_uret(ayri_sayfa, kalite, &oturum)?;
+    let (bytes, govde, _) = belge_uret(ayri_sayfa, &oturum)?;
     let klasor = PathBuf::from(&cikti_klasoru);
 
     tauri::async_runtime::spawn_blocking(move || -> Result<UretimSonucu, String> {
@@ -620,6 +665,35 @@ mod tests {
         let ikinci = benzersiz_yol(&dir, "belge");
         assert!(ikinci.ends_with("belge (2).udf"), "{ikinci:?}");
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Sayfaya sığmayan, düz renk olmayan bir PNG'den listeye girecek kayıt.
+    fn kayit(kalite: Kalite) -> Kayit {
+        let img = image::DynamicImage::ImageRgb8(image::RgbImage::from_fn(2400, 1600, |x, y| {
+            image::Rgb([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8])
+        }));
+        let mut png = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        Kayit::yeni("a.png".into(), image_io::baytlardan(png).unwrap(), kalite)
+    }
+
+    #[test]
+    fn her_resim_kendi_kalitesiyle_hazirlanir() {
+        let sayfa = udf::model::PageFormat::default();
+        let mut liste = vec![kayit(Kalite::Orijinal), kayit(Kalite::Kucuk), kayit(Kalite::Ideal)];
+        let specler = specleri_hazirla(&mut liste, &sayfa).unwrap();
+
+        assert_eq!(specler[0].bytes, liste[0].resim.spec.bytes, "orijinal: baytlara dokunulmaz");
+        assert!(specler[1].px_w < specler[2].px_w, "küçük, idealden az piksel taşır");
+        assert!(specler[2].px_w < specler[0].px_w, "ideal, orijinalden az piksel taşır");
+
+        // Genel seçim hepsini aynı basamağa getirince çıktı da aynılaşır.
+        for k in liste.iter_mut() {
+            k.kalite = Kalite::Kucuk;
+        }
+        let specler = specleri_hazirla(&mut liste, &sayfa).unwrap();
+        assert!(specler.iter().all(|s| s.bytes == specler[1].bytes));
     }
 
     #[test]

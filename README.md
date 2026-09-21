@@ -34,6 +34,9 @@ Editörü kurulu olmalıdır: Uygulama belgeyi UDE'de açar.
    (örneğin `Win+Shift+S` ile alınmış ekran görüntüsü) **Ctrl+V** ile veya pencerede sağ
    tıklayıp **Yapıştır** ile ekleyin.
 2. Kalite listesinde **İdeal Boyut** seçili gelir; çoğu iş için değiştirmeniz gerekmez.
+   Bir resmi farklı kalitede istiyorsanız listedeki satırının yanındaki seçimden ayarlayın;
+   alttaki liste bu durumda kendiliğinden **Özel** yazar. Alttaki listeden bir basamak
+   seçmek bütün resimleri o basamağa getirir ve tek tek yapılan ayarları siler.
 3. **UDF'de aç**'a basın. Belge kaydetme klasörüne yazılır ve UDE'de açılır.
 4. UDE'de **Ctrl+A** ile tümünü seçin, **Ctrl+C** ile kopyalayın; dilekçenizi açıp
    istediğiniz yere **Ctrl+V** ile yapıştırın. Belgeyi tek başına da kullanabilirsiniz:
@@ -94,6 +97,7 @@ görüntülerinde İdeal Boyut zaten küçük olan orijinali büyütmez; orijina
 - Varsayılan **İdeal Boyut**, gözle görülür fark bırakmadan dosyayı 10 kata kadar küçültür.
   **Orijinal Boyut** seçilirse PNG ve JPEG girdilerinde tek bir bayt bile değiştirilmez.
 - Kalite listesi resmin sayfada kapladığı yeri değiştirmez; yalnızca dosya boyutunu belirler.
+  Her resmin kalitesi ayrı ayrı da seçilebilir.
 - Telefon fotoğraflarındaki EXIF yön bilgisini okur; gerekiyorsa resmi kayıpsız PNG'ye
   çevirip düzeltir.
 - Resimler eklendikçe üretilecek dosyanın boyutunu gerçekten hesaplayıp gösterir; dilekçeye
@@ -133,6 +137,10 @@ Büyük düğmenin altındaki **Klasörü aç**, kaydetme klasörünü Gezgin'de
   olduğu gibi gömülür; diğerleri kayıpsız PNG'ye çevrilir.
 - Eklenen her resim listede piksel ölçüsü, sayfadaki boyutu (cm), biçimi ve dosya boyutuyla
   görünür; yanındaki **Kaldır** ile çıkarılır, **Tümünü kaldır** listeyi boşaltır.
+- Her satırda o resmin kalite seçimi ve altında **Belgede: …** yazısı vardır: resmin seçilen
+  kalitede belgeye gireceği boyut. Hangi resmi küçültmenin işe yarayacağı buradan görülür.
+  Yeni eklenen resim alttaki listedeki basamağı alır (alttaki liste **Özel** gösterirken en son
+  seçilen genel basamağı).
 - Aynı resim birden çok kez eklenebilir; belgeye eklediğiniz sırayla girer.
 - Dosya adı ilk resmin adından türetilir (`tarama.png` → `tarama.udf`); panodan gelen
   resimlerde `resimler-YYYYAAGG-SSDD.udf` olur. Aynı ad varsa ` (2)`, ` (3)` eklenir.

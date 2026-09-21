@@ -44,6 +44,18 @@ const el = {
 
 let resimler = [];
 let sonUretilenYol = null;
+// Yeni eklenen resmin alacağı basamak: alttaki genel seçimin en son somut değeri.
+let varsayilanKalite = "ideal";
+// Her resmin satırındaki "Belgede: …" yazısı (liste sırasıyla); boyut hesabı bunları doldurur.
+let payYazilari = [];
+
+// Satırdaki kalite seçiminin seçenekleri (alttaki genel seçimle aynı basamaklar).
+const KALITELER = [
+  ["orijinal", "Orijinal"],
+  ["ideal", "İdeal"],
+  ["orta", "Orta"],
+  ["kucuk", "Küçük"],
+];
 // UYAP Doküman Editörü bulunamadıysa üretme düğmesi hiç açılmaz: uygulama onsuz çalışmaz.
 let udeVar = true;
 
@@ -129,29 +141,80 @@ function ayarlariKaydet() {
 // Resim listesi
 // ---------------------------------------------------------------------------
 
+// Alttaki genel seçim: bütün resimler aynı basamaktaysa onu, değilse "Özel" gösterir.
+function genelSecimiGuncelle() {
+  const basamaklar = new Set(resimler.map((r) => r.kalite));
+  if (basamaklar.size === 1) varsayilanKalite = [...basamaklar][0];
+  el.kalite.value = basamaklar.size > 1 ? "ozel" : varsayilanKalite;
+}
+
 let boyutZamanlayici = null;
+// Hesap sürerken liste ya da seçim değişirse eski sonuç yenisinin üstüne yazılmasın.
+let boyutSirasi = 0;
 function boyutuTazele() {
   clearTimeout(boyutZamanlayici);
+  const sira = ++boyutSirasi;
   if (resimler.length === 0) {
     el.boyut.textContent = "";
     return;
   }
   el.boyut.textContent = "Üretilecek dosya boyutu: hesaplanıyor…";
+  payYazilari.forEach((p) => (p.textContent = "Belgede: …"));
   boyutZamanlayici = setTimeout(async () => {
     try {
-      const b = await invoke("belge_boyutu", {
-        ayriSayfa: el.ayriSayfa.checked,
-        kalite: el.kalite.value,
-      });
+      const b = await invoke("belge_boyutu", { ayriSayfa: el.ayriSayfa.checked });
+      if (sira !== boyutSirasi) return;
       // İkinci sayı: UDE her yapıştırılan resmi PNG'ye çevirir; dilekçenin büyüyeceği miktar odur.
       el.boyut.textContent =
         `Üretilecek dosya boyutu: ${mb(b.dosya)} · ` +
         `Dilekçeye yapıştırıldığında yaklaşık ${mb(b.yapistirma)}`;
+      b.resimler.forEach((bayt, i) => {
+        if (payYazilari[i]) payYazilari[i].textContent = `Belgede: ${mb(bayt)}`;
+      });
     } catch (e) {
+      if (sira !== boyutSirasi) return;
       el.boyut.textContent = "";
+      payYazilari.forEach((p) => (p.textContent = ""));
       console.error(e);
     }
   }, 150);
+}
+
+// Satırın yeşil işareti: orijinal baytlar korunuyor mu, EXIF yönü düzeltildi mi.
+function isaretYaz(isaret, r) {
+  if (r.orijinal_korundu && r.kalite === "orijinal") {
+    isaret.textContent = "Orijinal baytlar korunuyor — yeniden sıkıştırma yok";
+  } else if (r.dondurul) {
+    isaret.textContent = "EXIF yönü düzeltildi (kayıpsız PNG'ye çevrildi)";
+  } else {
+    isaret.textContent = "";
+  }
+  isaret.hidden = isaret.textContent === "";
+}
+
+// Satırdaki kalite seçimi: yalnız o resmi değiştirir; alttaki seçim gerekirse "Özel" olur.
+function kaliteSecimi(r, i, isaret) {
+  const secim = document.createElement("select");
+  secim.className = "kalite satir-kalite";
+  secim.setAttribute("aria-label", `${r.ad} kalitesi`);
+  for (const [deger, ad] of KALITELER) {
+    secim.add(new Option(ad, deger, false, deger === r.kalite));
+  }
+  secim.addEventListener("change", async () => {
+    const kalite = secim.value;
+    try {
+      await invoke("resim_kalitesi", { indeks: i, kalite });
+    } catch (e) {
+      secim.value = r.kalite;
+      durum(String(e), "kotu");
+      return;
+    }
+    r.kalite = kalite;
+    isaretYaz(isaret, r);
+    genelSecimiGuncelle();
+    boyutuTazele();
+  });
+  return secim;
 }
 
 function listeyiCiz() {
@@ -159,6 +222,8 @@ function listeyiCiz() {
   el.sayac.textContent = resimler.length;
   el.listeBolumu.hidden = resimler.length === 0;
   uretDugmesiniAyarla();
+  genelSecimiGuncelle();
+  payYazilari = [];
 
   resimler.forEach((r, i) => {
     const li = document.createElement("li");
@@ -183,19 +248,22 @@ function listeyiCiz() {
       ` · ${r.bicim} · ${mb(r.bayt)}`;
     bilgi.appendChild(olcu);
 
-    if (r.orijinal_korundu && el.kalite.value === "orijinal") {
-      const isaret = document.createElement("div");
-      isaret.className = "isaret";
-      isaret.textContent = "Orijinal baytlar korunuyor — yeniden sıkıştırma yok";
-      bilgi.appendChild(isaret);
-    } else if (r.dondurul) {
-      const isaret = document.createElement("div");
-      isaret.className = "isaret";
-      isaret.textContent = "EXIF yönü düzeltildi (kayıpsız PNG'ye çevrildi)";
-      bilgi.appendChild(isaret);
-    }
+    const isaret = document.createElement("div");
+    isaret.className = "isaret";
+    isaretYaz(isaret, r);
+    bilgi.appendChild(isaret);
 
     li.appendChild(bilgi);
+
+    const ayar = document.createElement("div");
+    ayar.className = "ayar";
+    ayar.appendChild(kaliteSecimi(r, i, isaret));
+    const pay = document.createElement("div");
+    pay.className = "pay";
+    pay.title = "Bu resmin seçilen kalitede UDF belgesine gireceği boyut";
+    ayar.appendChild(pay);
+    payYazilari.push(pay);
+    li.appendChild(ayar);
 
     const sil = document.createElement("button");
     sil.type = "button";
@@ -216,7 +284,7 @@ async function yollariEkle(yollar) {
   if (!yollar || yollar.length === 0) return;
   mesgulYap(true, `${yollar.length} resim okunuyor…`);
   try {
-    const sonuc = await invoke("resimleri_yukle", { yollar });
+    const sonuc = await invoke("resimleri_yukle", { yollar, kalite: varsayilanKalite });
     resimler = sonuc.resimler;
     if (sonuc.hatalar.length > 0) {
       durum(`${hazirMetni(resimler.length)} Okunamayan: ${sonuc.hatalar.join(" · ")}`, "kotu");
@@ -236,7 +304,7 @@ async function yollariEkle(yollar) {
 async function panodanEkle() {
   mesgulYap(true, "Panodaki resim alınıyor…");
   try {
-    resimler = await invoke("panodan_al");
+    resimler = await invoke("panodan_al", { kalite: varsayilanKalite });
     durum(hazirMetni(resimler.length));
   } catch (e) {
     durum(String(e), "kotu");
@@ -257,7 +325,6 @@ async function ac() {
   try {
     const s = await invoke("udfde_ac", {
       ayriSayfa: el.ayriSayfa.checked,
-      kalite: el.kalite.value,
       ciktiKlasoru: el.ciktiKlasoru.value,
     });
     sonUretilenYol = s.yol;
@@ -368,8 +435,20 @@ el.temizle.addEventListener("click", async () => {
 el.uret.addEventListener("click", ac);
 el.klasoruAc.addEventListener("click", klasoruAc);
 
-el.kalite.addEventListener("change", () => {
-  listeyiCiz(); // "orijinal baytlar korunuyor" işareti seçime bağlı
+// Genel seçim: bütün resimler bu basamağa geçer, tek tek yapılan ayarlar silinir.
+el.kalite.addEventListener("change", async () => {
+  const kalite = el.kalite.value;
+  if (kalite === "ozel") return; // "Özel" yalnız gösterilir, seçilemez
+  try {
+    await invoke("kaliteyi_hepsine_uygula", { kalite });
+  } catch (e) {
+    genelSecimiGuncelle();
+    durum(String(e), "kotu");
+    return;
+  }
+  varsayilanKalite = kalite;
+  resimler.forEach((r) => (r.kalite = kalite));
+  listeyiCiz();
   boyutuTazele();
 });
 

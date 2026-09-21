@@ -1,6 +1,6 @@
 [package]
 name = "udf-resimcisi"
-version = "1.6.0"
+version = "1.7.0"
 description = "Resmi ideal çözünürlükte, kalitesini koruyarak UDF belgesine koyar"
 authors = ["Çağrı Şahin"]
 edition = "2021"

@@ -53,11 +53,14 @@
     </section>
 
     <div class="eylem">
-      <select id="kalite" class="kalite" aria-label="Resim kalitesi">
+      <!-- Genel seçim: bütün resimlere uygulanır. Resimler tek tek farklı ayarlanınca
+           kendiliğinden "Özel" gösterir; "Özel" elle seçilemez. -->
+      <select id="kalite" class="kalite" aria-label="Bütün resimlerin kalitesi">
         <option value="orijinal">Orijinal Boyut</option>
         <option value="ideal" selected>İdeal Boyut</option>
         <option value="orta">Orta Boyut</option>
         <option value="kucuk">Küçük Boyut</option>
+        <option value="ozel" disabled hidden>Özel</option>
       </select>
       <p id="boyut" class="boyut"></p>
       <p id="durum" class="durum" role="status" aria-live="polite"></p>

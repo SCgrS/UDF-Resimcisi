@@ -320,3 +320,30 @@ Editörü'nde açıldı." ve UDE'de belge; büyük düğmenin altında ortalı k
 denetle** kutusu ve **Şimdi denetle ve güncelle** düğmesi, sürüm 1.6.0. Tuzak: UDE
 penceresinin başlığında da "UDF Resimcisi" (klasör adı) geçtiği için pencereyi başlıktan
 aramak yanlış pencereyi buluyor; tıklamalar pencere tanıtıcısıyla (hwnd) yapıldı.
+
+## 1.7 sürümü — resim başına kalite, geliştirici bağlantısı
+
+### Resim başına kalite
+
+Geliştirme derlemesi (`npm run dev`) gerçek pencerede denendi. Girdiler: `test3000x2000.png`,
+`telefon-12mp.jpg`, `dilekce-tarama.jpg`.
+
+| Adım | Satırlardaki "Belgede" | Alttaki seçim | Boyut satırı |
+|---|---|---|---|
+| Üçü eklendi (varsayılan İdeal) | 106 KB · 310 KB · 789 KB | İdeal Boyut | 1.1 MB · yapıştırınca ≈ 4.5 MB |
+| Telefon fotoğrafı satırdan **Orijinal** | 106 KB · **3.5 MB** · 789 KB; satırda yeşil "Orijinal baytlar korunuyor" | **Özel** (kendiliğinden) | 4.4 MB · ≈ 16.3 MB |
+| Alttan **Küçük Boyut** | 16 KB · 15 KB · 64 KB; bütün satırlar Küçük, yeşil işaret kalktı | Küçük Boyut | 80 KB · ≈ 324 KB |
+| 1. satır Orta, sonra yine Küçük | Orta'dayken alt seçim Özel; Küçük'e dönünce 16 KB | Küçük Boyut'a döndü | 80 KB · ≈ 324 KB |
+
+"Özel" seçeneği alttaki açılır listede görünmüyor, elle seçilemiyor; yalnızca gösteriliyor.
+Karışık basamakla belge kurulumu birim testle sınandı (`her_resim_kendi_kalitesiyle_hazirlanir`):
+Orijinal satırın baytları aynen gömülüyor, Küçük < İdeal < Orijinal piksel; genel seçimden
+sonra hepsi aynı çıktıyı veriyor. **UDF'de aç** bu sürümde UDE ile yeniden denenmedi; boyut
+satırıyla aynı `belge_uret` yolunu kullanıyor.
+
+### Ayarlardaki geliştirici bağlantısı
+
+1.6.0'da tıklanınca hiçbir şey olmuyordu: izin dosyasında `opener:allow-open-url` vardı ama
+kapsamı (izin verilen adresler) boştu; eklenti bu durumda her adresi reddeder. Kapsam
+`https://x.com/*` ile sınırlandırıldı. Tıklanınca varsayılan tarayıcı açıldı, pencere başlığı
+"… (@CgrShn) / X".

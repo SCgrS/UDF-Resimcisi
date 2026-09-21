@@ -26,6 +26,8 @@ pub fn run() {
             commands::resimleri_yukle,
             commands::panodan_al,
             commands::panoda_resim_var_mi,
+            commands::resim_kalitesi,
+            commands::kaliteyi_hepsine_uygula,
             commands::resmi_cikar,
             commands::listeyi_temizle,
             commands::liste_getir,
