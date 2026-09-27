@@ -9,9 +9,10 @@ pub mod model;
 pub mod serialize;
 pub mod zip;
 
+use std::io::{self, Cursor, Seek, SeekFrom, Write};
+use std::sync::Arc;
+
 use anyhow::{bail, Result};
-use base64::engine::general_purpose::STANDARD as B64;
-use base64::Engine;
 
 use model::{Alignment, Block, Document, ImageRun, PageFormat, Paragraph, Run};
 
@@ -21,10 +22,44 @@ pub const PT_PER_CM: f64 = 28.3465;
 /// Belgeye girecek tek bir resim: baytlar olduğu gibi gömülür.
 #[derive(Debug, Clone)]
 pub struct ImageSpec {
-    /// Resmin ham baytları (PNG/JPEG). Yeniden kodlanmaz.
-    pub bytes: Vec<u8>,
+    /// Resmin ham baytları (PNG/JPEG). Yeniden kodlanmaz. Paylaşımlıdır: önbellekten belgeye
+    /// geçerken kopyalanmaz.
+    pub bytes: Arc<[u8]>,
     pub px_w: u32,
     pub px_h: u32,
+}
+
+/// Yazılanı tutmadan yalnızca boyutunu sayan yazıcı. ZIP yazıcısı yerel başlığı sonradan
+/// doldurmak için geri sardığından konum ile uzunluk ayrı izlenir.
+#[derive(Debug, Default)]
+pub struct Olcer {
+    konum: u64,
+    /// Yazılan en uzak konum: çıktı bir dosya olsaydı boyutu bu olurdu.
+    pub uzunluk: u64,
+}
+
+impl Write for Olcer {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.konum += buf.len() as u64;
+        self.uzunluk = self.uzunluk.max(self.konum);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Seek for Olcer {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        let yeni = match pos {
+            SeekFrom::Start(n) => Some(n),
+            SeekFrom::End(n) => self.uzunluk.checked_add_signed(n),
+            SeekFrom::Current(n) => self.konum.checked_add_signed(n),
+        };
+        self.konum = yeni.ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "geçersiz konum"))?;
+        Ok(self.konum)
+    }
 }
 
 /// Görüntüleme boyutu kuralı.
@@ -80,14 +115,25 @@ pub fn goruntuleme_boyutu(px_w: u32, px_h: u32, sizing: Sizing, page: &PageForma
     }
 }
 
-/// Resimlerden `.udf` dosya baytlarını üretir.
-pub fn build_udf(images: &[ImageSpec], opts: &BuildOptions) -> Result<Vec<u8>> {
+/// Resimlerden `.udf` dosyasını `hedef`e yazar. XML ve base64 metni bellekte bütün olarak
+/// kurulmaz; sıkıştırıcıya parça parça akar.
+pub fn udf_yaz<W: Write + Seek>(images: &[ImageSpec], opts: &BuildOptions, hedef: W) -> Result<W> {
     if images.is_empty() {
         bail!("Belgeye koyacak resim yok.");
     }
     let doc = belge_kur(images, opts);
-    let xml = serialize::serialize(&doc);
-    zip::paketle(&xml)
+    zip::paketle(hedef, |w| serialize::yaz(&doc, w))
+}
+
+/// Resimlerden `.udf` dosya baytlarını üretir.
+pub fn build_udf(images: &[ImageSpec], opts: &BuildOptions) -> Result<Vec<u8>> {
+    Ok(udf_yaz(images, opts, Cursor::new(Vec::new()))?.into_inner())
+}
+
+/// Üretilecek `.udf` dosyasının bayt sayısı. Belge gerçekten kurulup sıkıştırılır (tahmin
+/// değil) ama çıktı tutulmaz, yalnızca sayılır.
+pub fn udf_boyutu(images: &[ImageSpec], opts: &BuildOptions) -> Result<u64> {
+    Ok(udf_yaz(images, opts, Olcer::default())?.uzunluk)
 }
 
 /// Resimlerden belge modelini kurar (test edilebilir ara adım).
@@ -107,7 +153,7 @@ pub fn belge_kur(images: &[ImageSpec], opts: &BuildOptions) -> Document {
         body.push(Block::Paragraph(Paragraph {
             alignment: Alignment::Center,
             runs: vec![Run::Image(ImageRun {
-                data_b64: B64.encode(&img.bytes),
+                data: img.bytes.clone(),
                 width: w,
                 height: h,
             })],
@@ -128,7 +174,7 @@ mod tests {
 
     fn spec(w: u32, h: u32) -> ImageSpec {
         ImageSpec {
-            bytes: vec![1, 2, 3],
+            bytes: vec![1, 2, 3].into(),
             px_w: w,
             px_h: h,
         }
@@ -185,24 +231,60 @@ mod tests {
 
     #[test]
     fn resim_baytlari_degistirilmeden_base64_olur() {
+        use base64::engine::general_purpose::STANDARD as B64;
+        use base64::Engine;
+
         let bytes = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
-        let doc = belge_kur(
+        let udf = build_udf(
             &[ImageSpec {
-                bytes: bytes.clone(),
+                bytes: bytes.clone().into(),
                 px_w: 100,
                 px_h: 100,
             }],
             &BuildOptions::default(),
-        );
-        let Block::Paragraph(p) = &doc.body[0] else {
-            panic!("paragraf bekleniyordu");
-        };
-        let Run::Image(img) = &p.runs[0] else {
-            panic!("resim bekleniyordu");
-        };
-        assert_eq!(B64.decode(&img.data_b64).unwrap(), bytes);
-        assert!(!img.data_b64.contains('\n'), "base64'te satır sonu olmamalı");
-        assert!(!img.data_b64.starts_with("data:"), "data-URI öneki olmamalı");
+        )
+        .unwrap();
+        let xml = content_xml(&udf);
+        let s = xml.find("imageData=\"").unwrap() + 11;
+        let e = xml[s..].find('"').unwrap() + s;
+        let b64 = &xml[s..e];
+        assert_eq!(B64.decode(b64).unwrap(), bytes);
+        assert!(!b64.contains('\n'), "base64'te satır sonu olmamalı");
+        assert!(!b64.starts_with("data:"), "data-URI öneki olmamalı");
+    }
+
+    #[test]
+    fn olculen_boyut_uretilen_dosyayla_ayni() {
+        // Sıkışmayan (gürültü) ve sıkışan veri; tek ve iki resim; ayrı sayfa açık ve kapalı.
+        let gurultu: Vec<u8> = (0..300_000u32)
+            .map(|i| (i.wrapping_mul(2_654_435_761) >> 13) as u8)
+            .collect();
+        let resimler = [
+            ImageSpec {
+                bytes: gurultu.into(),
+                px_w: 3000,
+                px_h: 2000,
+            },
+            ImageSpec {
+                bytes: vec![7; 100_000].into(),
+                px_w: 800,
+                px_h: 600,
+            },
+        ];
+        for separate_pages in [false, true] {
+            let opts = BuildOptions {
+                separate_pages,
+                ..Default::default()
+            };
+            for n in 1..=resimler.len() {
+                let udf = build_udf(&resimler[..n], &opts).unwrap();
+                assert_eq!(
+                    udf_boyutu(&resimler[..n], &opts).unwrap(),
+                    udf.len() as u64,
+                    "{n} resim, ayrı sayfa: {separate_pages}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -226,7 +308,7 @@ mod tests {
     #[test]
     fn ayni_resim_iki_kez_eklenirse_ikisi_de_belgeye_girer() {
         let ayni = ImageSpec {
-            bytes: vec![9, 9, 9, 9],
+            bytes: vec![9, 9, 9, 9].into(),
             px_w: 800,
             px_h: 600,
         };

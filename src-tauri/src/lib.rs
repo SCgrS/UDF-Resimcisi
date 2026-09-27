@@ -11,6 +11,8 @@ pub mod settings;
 pub mod udf;
 
 #[cfg(windows)]
+pub mod bellek;
+#[cfg(windows)]
 pub mod kayit;
 #[cfg(windows)]
 pub mod ude;
@@ -20,6 +22,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(commands::Oturum::default())
+        .setup(|_app| {
+            #[cfg(windows)]
+            {
+                use tauri::Manager;
+                if let Some(pencere) = _app.get_webview_window("main") {
+                    bellek::izle(&pencere);
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::ayarlari_getir,
             commands::ayarlari_kaydet,

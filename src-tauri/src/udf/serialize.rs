@@ -6,6 +6,14 @@
 //!
 //! Ondalık ayırıcı her zaman noktadır (Rust `format!` yerel ayardan bağımsızdır; Java portunda
 //! bunun için `Locale.US` gerekiyordu).
+//!
+//! Metin bir yazıcıya parça parça akar: 12 MP'lik bir fotoğrafın base64'ü tek başına ~5 MB,
+//! bütün belgeyi önce `String` olarak kurmak her resmi bellekte birkaç kez çoğaltıyordu.
+
+use std::io::{self, Write};
+
+use base64::engine::general_purpose::STANDARD as B64;
+use base64::Engine;
 
 use super::model::{Block, Document, ImageRun, Paragraph, Run, TextStyle};
 
@@ -31,6 +39,13 @@ struct Builder<'a> {
 
 /// Belgeyi `content.xml` metnine çevirir.
 pub fn serialize(doc: &Document) -> String {
+    let mut xml = Vec::new();
+    yaz(doc, &mut xml).expect("belleğe yazmak başarısız olmaz");
+    String::from_utf8(xml).expect("content.xml UTF-8'dir")
+}
+
+/// Belgenin `content.xml` metnini `w`'ye yazar.
+pub fn yaz<W: Write>(doc: &Document, w: &mut W) -> io::Result<()> {
     let mut b = Builder {
         cdata: String::new(),
         entries: Vec::new(),
@@ -39,33 +54,33 @@ pub fn serialize(doc: &Document) -> String {
     };
     b.build_blocks(&doc.body);
 
-    let mut xml = String::new();
-    xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n");
-    xml.push_str("<template format_id=\"1.8\">\n");
-    xml.push_str("<content><![CDATA[");
-    xml.push_str(&b.cdata);
-    xml.push_str("]]></content>");
-    xml.push_str(&page_format(doc));
-    xml.push('\n');
-    xml.push_str("<elements resolver=\"hvl-default\">\n");
+    w.write_all(b"<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n")?;
+    w.write_all(b"<template format_id=\"1.8\">\n")?;
+    w.write_all(b"<content><![CDATA[")?;
+    w.write_all(b.cdata.as_bytes())?;
+    w.write_all(b"]]></content>")?;
+    w.write_all(page_format(doc).as_bytes())?;
+    w.write_all(b"\n")?;
+    w.write_all(b"<elements resolver=\"hvl-default\">\n")?;
 
     let mut block_id_counter = 0usize;
     let mut offset_cursor = 0usize;
-    xml.push_str(&b.serialize_blocks(&doc.body, &mut block_id_counter, &mut offset_cursor));
+    b.serialize_blocks(&doc.body, &mut block_id_counter, &mut offset_cursor, w)?;
 
-    xml.push_str("</elements>\n");
-    xml.push_str("<styles>");
-    xml.push_str(
+    w.write_all(b"</elements>\n")?;
+    w.write_all(b"<styles>")?;
+    w.write_all(
         "<style name=\"default\" description=\"Geçerli\" family=\"Dialog\" size=\"12\" \
          bold=\"false\" italic=\"false\" foreground=\"-13421773\" \
-         FONT_ATTRIBUTE_KEY=\"javax.swing.plaf.FontUIResource[family=Dialog,name=Dialog,style=plain,size=12]\" />",
-    );
-    xml.push_str(
-        "<style name=\"hvl-default\" family=\"Times New Roman\" size=\"12\" description=\"Gövde\" />",
-    );
-    xml.push_str("</styles>\n");
-    xml.push_str("</template>");
-    xml
+         FONT_ATTRIBUTE_KEY=\"javax.swing.plaf.FontUIResource[family=Dialog,name=Dialog,style=plain,size=12]\" />"
+            .as_bytes(),
+    )?;
+    w.write_all(
+        "<style name=\"hvl-default\" family=\"Times New Roman\" size=\"12\" description=\"Gövde\" />"
+            .as_bytes(),
+    )?;
+    w.write_all(b"</styles>\n")?;
+    w.write_all(b"</template>")
 }
 
 impl<'a> Builder<'a> {
@@ -129,20 +144,20 @@ impl<'a> Builder<'a> {
         self.entries.iter().filter(|e| e.block_id == id).collect()
     }
 
-    fn serialize_blocks(
+    fn serialize_blocks<W: Write>(
         &self,
         blocks: &[Block],
         block_id_counter: &mut usize,
         offset_cursor: &mut usize,
-    ) -> String {
-        let mut xml = String::new();
+        w: &mut W,
+    ) -> io::Result<()> {
         for block in blocks {
             match block {
                 Block::Paragraph(p) => {
                     let id = *block_id_counter;
                     *block_id_counter += 1;
                     let be = self.entries_for_block(id);
-                    xml.push_str(&serialize_paragraph(p, &be, *offset_cursor));
+                    serialize_paragraph(p, &be, *offset_cursor, w)?;
                     if be.is_empty() {
                         *offset_cursor += 2;
                     } else {
@@ -153,33 +168,41 @@ impl<'a> Builder<'a> {
                 Block::PageBreak => {
                     *block_id_counter += 1;
                     let empty = Paragraph::default();
-                    let mut inner = serialize_paragraph(&empty, &[], *offset_cursor);
-                    if inner.ends_with('\n') {
+                    let mut inner = Vec::new();
+                    serialize_paragraph(&empty, &[], *offset_cursor, &mut inner)?;
+                    if inner.last() == Some(&b'\n') {
                         inner.pop();
                     }
-                    xml.push_str("<page-break>");
-                    xml.push_str(&inner);
-                    xml.push_str("</page-break>\n");
+                    w.write_all(b"<page-break>")?;
+                    w.write_all(&inner)?;
+                    w.write_all(b"</page-break>\n")?;
                     *offset_cursor += 2;
                 }
             }
         }
-        xml
+        Ok(())
     }
 }
 
-fn serialize_paragraph(para: &Paragraph, be: &[&Entry], empty_offset: usize) -> String {
-    let mut xml = String::new();
-    xml.push_str("<paragraph");
-    xml.push_str(&format!(" Alignment=\"{}\"", para.alignment as i32));
-    xml.push_str(&format!(" LeftIndent=\"{}\"", f1(para.left_indent)));
-    xml.push_str(&format!(" RightIndent=\"{}\"", f1(para.right_indent)));
-    xml.push('>');
+fn serialize_paragraph<W: Write>(
+    para: &Paragraph,
+    be: &[&Entry],
+    empty_offset: usize,
+    w: &mut W,
+) -> io::Result<()> {
+    write!(
+        w,
+        "<paragraph Alignment=\"{}\" LeftIndent=\"{}\" RightIndent=\"{}\">",
+        para.alignment as i32,
+        f1(para.left_indent),
+        f1(para.right_indent)
+    )?;
 
     if be.is_empty() {
-        xml.push_str(&format!(
+        write!(
+            w,
             "<content startOffset=\"{empty_offset}\" length=\"2\" family=\"Times New Roman\" size=\"10\" />"
-        ));
+        )?;
     } else {
         let last_idx = be.len() - 1;
         for (i, entry) in be.iter().enumerate() {
@@ -187,32 +210,46 @@ fn serialize_paragraph(para: &Paragraph, be: &[&Entry], empty_offset: usize) -> 
                 Run::Text(t) => {
                     // Paragrafın son elemanı metinse `length` paragraf sonu `\n`'i de kapsar.
                     let len = entry.length + if i == last_idx { 1 } else { 0 };
-                    xml.push_str(&format!(
+                    write!(
+                        w,
                         "<content startOffset=\"{}\" length=\"{}\"{} />",
                         entry.start_offset,
                         len,
                         font_attrs(&t.style)
-                    ));
+                    )?;
                 }
                 Run::Image(img) => {
                     // Son eleman resimse `\n` KAPSANMAZ (referans uygulamanın davranışı).
-                    xml.push_str(&image_tag(img, entry.start_offset));
+                    image_tag(img, entry.start_offset, w)?;
                 }
             }
         }
     }
-    xml.push_str("</paragraph>\n");
-    xml
+    w.write_all(b"</paragraph>\n")
 }
 
-fn image_tag(img: &ImageRun, start_offset: usize) -> String {
-    format!(
-        "<image imageData=\"{}\" startOffset=\"{}\" length=\"1\" width=\"{}\" height=\"{}\" />",
-        img.data_b64,
+fn image_tag<W: Write>(img: &ImageRun, start_offset: usize, w: &mut W) -> io::Result<()> {
+    w.write_all(b"<image imageData=\"")?;
+    base64_yaz(&img.data, w)?;
+    write!(
+        w,
+        "\" startOffset=\"{}\" length=\"1\" width=\"{}\" height=\"{}\" />",
         start_offset,
         f1(img.width),
         f1(img.height)
     )
+}
+
+/// Baytları base64 olarak parça parça yazar. Parçalar 3 baytın katı olduğu için aralarda dolgu
+/// (`=`) oluşmaz; çıktı `B64.encode` ile tek seferde kodlanmışıyla aynıdır.
+fn base64_yaz<W: Write>(veri: &[u8], w: &mut W) -> io::Result<()> {
+    const PARCA: usize = 3 * 16 * 1024;
+    let mut tampon = vec![0u8; PARCA / 3 * 4];
+    for parca in veri.chunks(PARCA) {
+        let n = B64.encode_slice(parca, &mut tampon).map_err(io::Error::other)?;
+        w.write_all(&tampon[..n])?;
+    }
+    Ok(())
 }
 
 fn page_format(doc: &Document) -> String {
@@ -291,9 +328,9 @@ mod tests {
     use super::*;
     use crate::udf::model::{Alignment, PageFormat, TextRun};
 
-    fn img(b64: &str, w: f64, h: f64) -> Run {
+    fn img(veri: &[u8], w: f64, h: f64) -> Run {
         Run::Image(ImageRun {
-            data_b64: b64.to_string(),
+            data: veri.into(),
             width: w,
             height: h,
         })
@@ -317,7 +354,7 @@ mod tests {
     fn tek_resim_cdata_ve_offset() {
         let doc = Document {
             pages: PageFormat::default(),
-            body: vec![para_with(vec![img("AAA", 524.4, 349.6)])],
+            body: vec![para_with(vec![img(b"AAA", 524.4, 349.6)])],
         };
         let xml = serialize(&doc);
 
@@ -332,9 +369,9 @@ mod tests {
         let doc = Document {
             pages: PageFormat::default(),
             body: vec![
-                para_with(vec![img("A", 100.0, 100.0)]),
-                para_with(vec![img("B", 100.0, 100.0)]),
-                para_with(vec![img("C", 100.0, 100.0)]),
+                para_with(vec![img(b"A", 100.0, 100.0)]),
+                para_with(vec![img(b"B", 100.0, 100.0)]),
+                para_with(vec![img(b"C", 100.0, 100.0)]),
             ],
         };
         let xml = serialize(&doc);
@@ -355,11 +392,11 @@ mod tests {
         let doc = Document {
             pages: PageFormat::default(),
             body: vec![
-                para_with(vec![img("A", 100.0, 100.0)]),
+                para_with(vec![img(b"A", 100.0, 100.0)]),
                 Block::PageBreak,
-                para_with(vec![img("B", 100.0, 100.0)]),
+                para_with(vec![img(b"B", 100.0, 100.0)]),
                 Block::PageBreak,
-                para_with(vec![img("C", 100.0, 100.0)]),
+                para_with(vec![img(b"C", 100.0, 100.0)]),
             ],
         };
         let xml = serialize(&doc);
@@ -392,7 +429,7 @@ mod tests {
             body: vec![Block::Paragraph(Paragraph {
                 alignment: Alignment::Left,
                 runs: vec![
-                    img("A", 10.0, 10.0),
+                    img(b"A", 10.0, 10.0),
                     Run::Text(TextRun {
                         text: "Merhaba".to_string(),
                         style: TextStyle::default(),
@@ -440,6 +477,17 @@ mod tests {
     }
 
     #[test]
+    fn parca_parca_base64_tek_seferlikle_ayni() {
+        // Parça sınırının iki yanı ve 3'e bölünmeyen uzunluklar (dolgu yalnız sonda olmalı).
+        for n in [0, 1, 2, 3, 49_151, 49_152, 49_153, 150_001] {
+            let veri: Vec<u8> = (0..n).map(|i| (i * 7 + i / 251) as u8).collect();
+            let mut yazilan = Vec::new();
+            base64_yaz(&veri, &mut yazilan).unwrap();
+            assert_eq!(String::from_utf8(yazilan).unwrap(), B64.encode(&veri), "n = {n}");
+        }
+    }
+
+    #[test]
     fn cdata_kapanisi_kirilir() {
         assert_eq!(cdata_guvenli("a]]>b"), "a]]&gt;b");
     }
@@ -460,7 +508,7 @@ mod tests {
         // Snapshot: bilinen girdi için content.xml çıktısı sabit.
         let doc = Document {
             pages: PageFormat::default(),
-            body: vec![para_with(vec![img("QUJD", 524.4, 349.6)])],
+            body: vec![para_with(vec![img(b"ABC", 524.4, 349.6)])],
         };
         let beklenen = concat!(
             "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n",

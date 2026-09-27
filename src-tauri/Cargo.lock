@@ -4325,7 +4325,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "udf-resimcisi"
-version = "1.7.0"
+version = "1.7.1"
 dependencies = [
  "anyhow",
  "arboard",
@@ -4340,7 +4340,9 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "ureq",
+ "webview2-com",
  "windows 0.58.0",
+ "windows-core 0.61.2",
  "zip",
 ]
 

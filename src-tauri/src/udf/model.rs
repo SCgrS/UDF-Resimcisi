@@ -3,6 +3,8 @@
 //! Saf veri: dosya sistemi, Tauri veya Windows bağımlılığı yok — `cargo test` ile
 //! doğrudan sınanabilir.
 
+use std::sync::Arc;
+
 /// Paragraf hizalaması (content.xml'deki `Alignment` sayısal değeri).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Alignment {
@@ -41,8 +43,9 @@ impl Default for TextStyle {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageRun {
-    /// Resim baytlarının base64'ü — satır sonu ve data-URI öneki YOK.
-    pub data_b64: String,
+    /// Resmin ham baytları. `content.xml`'e base64 olarak — satır sonu ve data-URI öneki
+    /// olmadan — yazılırken parça parça kodlanır; base64 metni bellekte bütün olarak durmaz.
+    pub data: Arc<[u8]>,
     /// Punto cinsinden görüntüleme genişliği (bitmap çözünürlüğünden bağımsız).
     pub width: f64,
     /// Punto cinsinden görüntüleme yüksekliği.

@@ -1,6 +1,6 @@
 [package]
 name = "udf-resimcisi"
-version = "1.7.0"
+version = "1.7.1"
 description = "Resmi ideal çözünürlükte, kalitesini koruyarak UDF belgesine koyar"
 authors = ["Çağrı Şahin"]
 edition = "2021"
@@ -30,6 +30,10 @@ ureq = { version = "2", features = ["json"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 
 [target.'cfg(windows)'.dependencies]
+# WebView2'ye bellek hedefi vermek için (src/bellek.rs). Sürümler Tauri'nin (wry) kullandığıyla
+# aynı olmalı: `PlatformWebview::controller()` bu sandıkların türlerini döndürür.
+webview2-com = "0.38"
+windows-core = "0.61"
 windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",

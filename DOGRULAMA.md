@@ -347,3 +347,99 @@ satırıyla aynı `belge_uret` yolunu kullanıyor.
 kapsamı (izin verilen adresler) boştu; eklenti bu durumda her adresi reddeder. Kapsam
 `https://x.com/*` ile sınırlandırıldı. Tıklanınca varsayılan tarayıcı açıldı, pencere başlığı
 "… (@CgrShn) / X".
+
+## 1.7.1 sürümü — bellek
+
+Ortam: Windows 11 Pro 26200, WebView2 154.0.4258.37, 12 çekirdek, 32 GB. Uygulama gizli
+pencereyle derlendi, ekran dışına taşınıp odak verilmeden gösterildi; resimler WebView2 hata
+ayıklama kapısından sayfanın kendi işlevleriyle (`yollariEkle`, alttaki kalite seçimi)
+eklendi. Değer: Görev Yöneticisi'nin **Bellek** sütunu (özel çalışma kümesi), uygulama süreci
+ile altındaki bütün WebView2 süreçlerinin toplamı. Girdiler: `test3000x2000.png`,
+`telefon-12mp.jpg`, `dilekce-tarama.jpg`; "dikey" fotoğraf, `telefon-12mp.jpg`'ye EXIF
+`Orientation = 6` eklenerek üretildi (dikey çekilmiş telefon fotoğrafları böyle gelir).
+
+| Durum | 1.7.0 | 1.7.1 |
+|---|---|---|
+| Boşta (açılıştan 10 sn sonra) | 78,8 MB | **69,5 MB** |
+| 3 resim, İdeal | 92,7 MB | **78,1 MB** |
+| 3 resim, Orijinal | 94,5 MB | **79,3 MB** |
+| 9 resim (3'ü dikey telefon fotoğrafı), İdeal | 194,4 MB | **105,1 MB** |
+| — bunun uygulama süreci | 105,3 MB | **34,2 MB** |
+| Liste temizlendi | 93,2 MB | **74,6 MB** |
+| Simge durumunda | 89,4 MB | **54,8 MB** |
+| Uygulama sürecinin tepe noktası (işlenen bellek) | 331 MB | **192 MB** |
+
+Boştaki dağılım (1.7.0 → 1.7.1): WebView2 tarayıcı süreci 30,0 → 30,2 MB, GPU süreci
+21,1 → 8,3 MB, sayfa süreci 13,4 → 16,6 MB, ağ + depolama + çökme raporlayıcı 11,1 → 11,2 MB,
+uygulama süreci 3,2 → 3,2 MB. Uygulamanın kendisi boşta 3 MB; gerisi WebView2.
+
+### Ne değişti
+
+1. **Dikey telefon fotoğrafının PNG'si bellekte tutulmuyor.** EXIF yönü düzeltilen 12 MP
+   fotoğraf kayıpsız PNG'ye çevrildiğinde **26,9 MB** tutuyordu (girdi JPEG 3,5 MB) ve bu PNG
+   liste boyunca bellekte duruyordu. Artık yeniden kodlanması gereken girdide (EXIF yönü ya da
+   WEBP/BMP/TIFF/GIF) PNG girdiden büyükse PNG atılıyor; girdi ve yön saklanıyor, pikseller
+   gerektiğinde girdiden yeniden çözülüyor. PNG kayıpsız olduğu için bu pikseller PNG'ninkilerle
+   birebir aynı; PNG yalnızca **Orijinal Boyut** seçilince yeniden üretiliyor (bayt bayt aynı
+   çıkıyor) ve başka basamağa geçilince bırakılıyor. BMP gibi PNG'si girdiden küçük olanlarda
+   eskisi gibi PNG tutuluyor.
+2. **Önizleme bir kez üretiliyor.** Liste her yenilendiğinde (ekleme, kaldırma, temizleme)
+   bütün resimler baştan çözülüp 280 px PNG önizleme üretiliyordu. Artık resim yüklenirken bir
+   kez, satırdaki 64 × 48'lik kutuya %300 ekran ölçeğine kadar yeten 192 × 144 boyutunda ve
+   saydamlık yoksa JPEG olarak üretiliyor (PNG'nin onda biri kadar).
+3. **Belge bellekte bütün olarak kurulmuyor.** Boyut satırı her değişiklikte belgeyi baştan
+   kuruyordu: resim baytlarının kopyası, base64 metni (%33 büyük), bütün `content.xml` ve ZIP
+   çıktısı aynı anda bellekteydi. Artık baytlar paylaşımlı (`Arc`), XML ve base64 sıkıştırıcıya
+   parça parça akıyor; boyut satırı çıktıyı tutmadan yalnızca sayıyor (`udf::Olcer`),
+   **UDF'de aç** doğrudan dosyaya yazıyor. Yapıştırma kestirimindeki PNG de artık yalnızca
+   sayılıyor.
+4. **WebView2 GPU'suz çiziyor** (`additionalBrowserArgs`: Tauri'nin varsayılanı +
+   `--disable-gpu`). GPU süreci 21 → 8 MB. Denenen öteki ayarlar (boşta toplam; son iki satır
+   1.7.1 derlemesinde, ilk üçü 1.7.0'da — boştayken iki sürümün uygulama süreci aynı):
+
+   | Ayar | Toplam |
+   |---|---|
+   | Tauri varsayılanı | 78,8 MB |
+   | `--disable-gpu` (**alındı**) | 66,7 MB |
+   | `--in-process-gpu` | 71,4 MB |
+   | `--disable-gpu --in-process-gpu` | 63,4 MB |
+   | `--disable-gpu` + `NetworkServiceInProcess2` | 62,4 MB |
+
+   Son ikisi GPU'yu ya da ağ hizmetini tarayıcı sürecinin içine alıyor: oradaki bir çökme bütün
+   pencereyi boşaltır ve WebView2 kendi kendine güncellendiği için az kullanılan ayarlar
+   ileride sessizce bozulabilir. 6-7 MB için alınmadı.
+5. **Arka planda WebView2 belleği kısılıyor** (`src/bellek.rs`). Pencere simge durumuna
+   küçültülünce hemen, odağı kaybedip 30 sn geri almazsa WebView2'ye
+   `MemoryUsageTargetLevel = Low` deniyor; odak gelince `Normal`. Ölçümde sayfa süreci
+   20,5 → 4,1 MB'a indi; tarayıcı süreci (~28 MB) bu ayarla kırpılmıyor. Odak olayları Tauri'de
+   WebView2'nin `GotFocus`/`LostFocus` olaylarından geliyor: sayfa içine tıklamak odak kaybı
+   sayılmıyor, pencere öne gelince wry odağı sayfaya taşıdığı için düzey normale dönüyor.
+   Ölçülen yol simge durumu; "30 sn arka planda" yolu aynı çağrıyı yapıyor ama sınamak için
+   kullanıcının odağını almak gerektiğinden ölçülmedi.
+
+### Çıktı değişmedi
+
+Aynı karşılaştırma aracı 1.7.0 ve 1.7.1 koduyla derlendi (sürüm derlemesi). 10 girdi
+(PNG, 12 MP JPEG, taranmış JPEG, ekran görüntüsü PNG, EXIF 6'lı dikey fotoğraf, BMP, TIFF, GIF,
+36 MB'lık BMP fotoğraf, 15 MB gürültü PNG) × 4 basamak için belgeye girecek baytlar, piksel
+ölçüleri, yapıştırma kestirimleri, listede görünen bilgiler ve bütün resimlerden iki sayfa
+düzeninde kurulan belgeler: **49 dosyanın SHA-256'sı aynı.**
+
+Arayüz: 1.7.0 ve 1.7.1 pencereleri üç resimle `PrintWindow` ile yakalandı. Piksellerin %3,7'si
+farklı; farklar yalnızca yazı ve köşe kenarlarındaki kenar yumuşatmasında (GPU'suz çizim, en
+büyük fark 65/255) ve önizlemelerde. Gözle ayırt edilmiyor.
+
+53 birim test ve `cargo clippy --all-targets -- -D warnings` temiz. Yeni testler: dikey
+fotoğrafın PNG'si tutulmadan her basamakta PNG kaynaklı resimle bayt bayt aynı sonucu vermesi,
+PNG'si küçük girdide PNG'nin tutulması, önizlemenin ölçüsü ve biçimi, parça parça base64'ün
+tek seferlikle aynılığı, sayılan belge boyutunun üretilen dosyayla aynılığı, dosyaya akan
+belgenin bellekte kurulanla aynılığı, Orijinal'den çıkınca önbelleğin bırakılması.
+
+### Kalan
+
+- 12 MP fotoğraf İdeal'e küçültülürken çözülmüş resim (36 MB) ile `image` sandığının Lanczos3
+  ara belleği (~75 MB) birkaç yüz milisaniye birlikte duruyor; uygulama süreci bu anda
+  ~130 MB'a çıkıyor. Başka bir yeniden örnekleyici gömülen baytları değiştireceği için
+  dokunulmadı.
+- Dikey fotoğrafın listede gösterilen "Orijinal" boyutu için PNG yüklenirken yine bir kez
+  kodlanıyor; 9 resmin (3'ü dikey) eklenmesi 10,2 → 9,8 sn, belirgin değişmedi.

@@ -59,7 +59,7 @@ fn main() {
         }
     };
     let sayfa = udf::model::PageFormat::default();
-    let (gw, gh) = udf::goruntuleme_boyutu(r.spec.px_w, r.spec.px_h, udf::Sizing::FitPage, &sayfa);
+    let (gw, gh) = udf::goruntuleme_boyutu(r.px_w, r.px_h, udf::Sizing::FitPage, &sayfa);
     let govde = yol
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
@@ -68,9 +68,9 @@ fn main() {
     println!(
         "Girdi: {} — {} × {} px, {} ({}), sayfada {:.1} × {:.1} cm",
         yol.display(),
-        r.spec.px_w,
-        r.spec.px_h,
-        kb(r.spec.bytes.len()),
+        r.px_w,
+        r.px_h,
+        kb(r.orijinal_bayt),
         r.bicim,
         gw / PT_PER_CM,
         gh / PT_PER_CM
@@ -88,7 +88,7 @@ fn main() {
         ("Orta", "orta", Kalite::Orta),
         ("Küçük", "kucuk", Kalite::Kucuk),
     ] {
-        let spec = image_io::kaliteye_indir(&r.spec, kalite, &sayfa).expect("indirgeme");
+        let spec = image_io::kaliteye_indir(&r, kalite, &sayfa).expect("indirgeme");
         let udf_bytes = udf::build_udf(std::slice::from_ref(&spec), &BuildOptions::default())
             .expect("udf");
         let png = png_boyutu(&spec);

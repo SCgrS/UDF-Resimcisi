@@ -148,6 +148,9 @@ Büyük düğmenin altındaki **Klasörü aç**, kaydetme klasörünü Gezgin'de
   kurulup ölçülür, her ekleme ve kalite değişiminde yenilenir. Yanındaki "dilekçeye
   yapıştırıldığında" değeri ise UDE'nin PNG kodlamasının kestirimidir; ölçümlerde gerçek
   değerin %2 üstünde çıktı.
+- Bellek: boşta yaklaşık 70 MB. Pencere simge durumuna küçültülünce ya da 30 saniye arka
+  planda kalınca arayüzün belleğini kısar (yaklaşık 55 MB), öne gelince eski hâline döner.
+  Ölçümler için bkz. [DOGRULAMA.md](DOGRULAMA.md) "1.7.1 sürümü — bellek".
 
 ### Kalite basamakları
 
