@@ -350,10 +350,10 @@ kapsamı (izin verilen adresler) boştu; eklenti bu durumda her adresi reddeder.
 
 ## 1.7.1 sürümü — bellek
 
-Ortam: Windows 11 Pro 26200, WebView2 154.0.4258.37, 12 çekirdek, 32 GB. Uygulama gizli
-pencereyle derlendi, ekran dışına taşınıp odak verilmeden gösterildi; resimler WebView2 hata
-ayıklama kapısından sayfanın kendi işlevleriyle (`yollariEkle`, alttaki kalite seçimi)
-eklendi. Değer: Görev Yöneticisi'nin **Bellek** sütunu (özel çalışma kümesi), uygulama süreci
+Ortam: Windows 11 Pro 26200, WebView2 154.0.4258.37, 12 çekirdek, 32 GB. Ölçüm aracı
+`tools/bellek-olcumu.ps1`: uygulama gizli pencereyle derlendi, ekran dışına taşınıp odak
+verilmeden gösterildi; resimler WebView2 hata ayıklama kapısından sayfanın kendi işlevleriyle
+(`yollariEkle`, alttaki kalite seçimi) eklendi. Değer: Görev Yöneticisi'nin **Bellek** sütunu (özel çalışma kümesi), uygulama süreci
 ile altındaki bütün WebView2 süreçlerinin toplamı. Girdiler: `test3000x2000.png`,
 `telefon-12mp.jpg`, `dilekce-tarama.jpg`; "dikey" fotoğraf, `telefon-12mp.jpg`'ye EXIF
 `Orientation = 6` eklenerek üretildi (dikey çekilmiş telefon fotoğrafları böyle gelir).

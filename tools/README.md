@@ -15,6 +15,29 @@ cargo run --release --example olcum -- ../testdata/telefon-12mp.jpg
 cargo run --release --example olcum -- ../testdata/dilekce-tarama.jpg --yaz ../testdata/olcum
 ```
 
+## `bellek-olcumu.ps1` / `cdp.mjs` — bellek ölçümü
+
+`DOGRULAMA.md` "1.7.1 sürümü — bellek" tablolarının kaynağı. Uygulamayı kullanıcının ekranına
+dokunmadan açar ve Görev Yöneticisi'nin **Bellek** sütununu (özel çalışma kümesi) uygulama
+süreci ile altındaki bütün WebView2 süreçleri için toplar: boşta, 3 resimle (İdeal ve Orijinal),
+3'ü dikey 9 fotoğrafla, liste temizlenince ve simge durumunda.
+
+```powershell
+tools\bellek-olcumu.ps1 -Derle                      # gizli pencereli derleme + tam ölçüm
+tools\bellek-olcumu.ps1 -Exe <exe> -Etiket eski     # hazır bir gizli pencereli derlemeyi ölç
+tools\bellek-olcumu.ps1 -Exe <exe> -Kisa -Argumanlar "<WebView2 ayarları>"   # ayar denemesi
+```
+
+- Pencere ekran dışı `x`/`y` ile açılamıyor: tao, hiçbir ekrana düşmeyen konumu yok sayıp
+  pencereyi Windows'un varsayılan konumunda (sol üstte, görünür) açıyor.
+  Bu yüzden `-Derle`, `tauri.conf.json`'daki pencere ayarını gizli ve odaksız (`visible`,
+  `focus`: false) derler; betik pencereyi önce ekran dışına taşır, sonra odak vermeden gösterir.
+- Resimler WebView2 hata ayıklama kapısından (`cdp.mjs`, Node 22+) sayfanın kendi işlevleriyle
+  eklenir. `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` uygulamanın kendi WebView2 ayarlarının yerine
+  geçtiği için betik aynı ayarları (`additionalBrowserArgs`) kapının yanına kendisi ekler.
+- "Dikey" fotoğraf, `testdata/telefon-12mp.jpg`'ye EXIF `Orientation = 6` eklenerek üretilir.
+  Çıktılar `%TEMP%\udf-resimcisi-bellek` altına yazılır.
+
 ## `macospasterich/`
 
 `UdeXml.java` ve `UdeDoc.java`, `ude-win-x64` projesindeki **referans UDF serializer**'ın
