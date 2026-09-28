@@ -511,3 +511,40 @@ argüman yeterli.
 
 `RegGetValueW` + `RRF_RT_REG_SZ`, `REG_EXPAND_SZ` değerleri de açarak okuyor
 (`batfile\shell\edit\command` ile denendi); komutun genişletilebilir yazılması sorun değil.
+
+### Uygulamanın kendisiyle, sahadaki durumda (uçtan uca)
+
+`tools/ude-sinama.ps1 -Kip uygulama`: uygulama görünmeyen masaüstünde açıldı, sayfa WebView2
+hata ayıklama kapısından sürüldü (açılış durumu, "UDE'nin yerini göster" komutu, resim ekleyip
+**UDF'de aç**). Sahadaki bozuk ilişki, `HKCU\Software\Classes\.udf` varsayılanı açma komutu
+olmayan bir ProgID'yi gösterecek biçimde canlandırıldı. Sınama paketli (MSIX) bir uygulamanın
+içinden çalıştı; oradan yapılan `HKCU` yazımı paketin sanal kayıt defterinde kaldı, gerçek kayıt
+defteri değişmedi (WMI ile okundu). 1.7.2 olarak sınanan dosya, CI'ın taslak sürüme yüklediği
+taşınabilir exe (SHA-256 GitHub'ın özetiyle aynı).
+
+| Durum | 1.7.1 (kurulu olan) | 1.7.2 (taslak sürüm) |
+|---|---|---|
+| Canlandırılan bozuk ilişki: açılış | "UYAP Doküman Editörü bu bilgisayarda bulunamadı …" — sahadaki ekran görüntüsünün aynısı; **UDF'de aç** aynı hatayı veriyor | UDE bulundu, hata yok, "yerini göster" düğmesi gizli |
+| Canlandırılan bozuk ilişki: **UDF'de aç** | — | "Belge hazır (8 KB) ve UYAP Doküman Editörü'nde açıldı."; UDE penceresi başlıkta `Ekran görüntüsü ….udf`, açılıştan 6,1 sn sonra |
+| Bu bilgisayarın gerçek durumu (`kopya.exe`): **UDF'de aç** | Belge açıldı (şans eseri) | Belge açıldı, 5,8 sn |
+| `ude_yerini_kaydet("C:\Windows\notepad.exe")` | — | Reddedildi: "Seçilen dosya UYAP Doküman Editörü değil …" |
+| `ude_yerini_kaydet(<UDE exe>)`, ardından arayüzün ayar kaydı | — | Yol kaydedildi ve ayar kaydından sonra da yerinde |
+
+1.7.2'de UDE'ye giden komut satırı kayıtlı komutun biçiminde
+(`"…Uyap Doküman Editörü.exe" "getNewWPInstance" "EDITOR_TYPE_DOCUMENT" "<belge>" "%~s1"`): belge
+UDE'nin kaydıyla, kabuk üzerinden açıldı. CI'da 1.7.2'nin bütün birim testleri ve
+`cargo clippy --all-targets -- -D warnings` temiz.
+
+Yayımlanınca `releases/latest/download/UDF-Resimcisi-kurulum.exe` indirildi (SHA-256 sürümdeki
+özetle aynı) ve ofis bilgisayarına `/S` ile kuruldu: exe dosya sürümü ve gerçek `HKCU` kaldırma
+kaydı 1.7.2.
+
+### Kalan
+
+- Kullanıcının bilgisayarına bakılamadı; neden, aynı hatayı veren en olası durum. Başka bir
+  nedende de **UDE'nin yerini göster** çıkış yolu var.
+- "UDE'nin yerini göster" düğmesinin görünür hâli ve dosya seçme penceresi elle denenmedi: bu
+  bilgisayarda UDE her yoldan bulunduğu için düğme çıkmıyor. Arkasındaki komut yukarıda sınandı.
+- UYAP'ın sitesindeki `.exe` kurucusu incelenmedi; bu bilgisayardaki kurulum MSI. Başka bir yere
+  kuruyorsa UDE yine `.udf` kaydından, kurulu programlar listesinden ya da elle gösterilerek
+  bulunur.
