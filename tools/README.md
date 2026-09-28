@@ -38,6 +38,28 @@ tools\bellek-olcumu.ps1 -Exe <exe> -Kisa -Argumanlar "<WebView2 ayarları>"   # 
 - "Dikey" fotoğraf, `testdata/telefon-12mp.jpg`'ye EXIF `Orientation = 6` eklenerek üretilir.
   Çıktılar `%TEMP%\udf-resimcisi-bellek` altına yazılır.
 
+## `ude-sinama.ps1` — UDE ile açma sınaması
+
+`DOGRULAMA.md` "1.7.2 sürümü — UDE'yi bulma" sonuçlarının kaynağı. Her şey ayrı, görünmeyen bir
+masaüstünde (`CreateDesktop`) olur: orada başlayan süreçlerin ve açtıkları UDE'nin pencereleri
+kullanıcının ekranına düşmez, odak çalmaz. UDE'nin açtığı pencere başlıktaki belge adından,
+UDE'ye giden komut satırı WMI'dan okunur.
+
+```powershell
+tools\ude-sinama.ps1 -Kip kayit                     # belge UDE'nin kaydıyla (ShellExecuteExW + SEE_MASK_CLASSKEY)
+tools\ude-sinama.ps1 -Kip dogrudan                  # UDE'nin exe'si jetonlarla doğrudan
+tools\ude-sinama.ps1 -Kip uygulama -Exe <exe>       # uygulamanın kendisi: açılış, "UDE'nin yerini göster", UDF'de aç
+```
+
+- UDE açıksa başlamaz: yeni belge kullanıcının açık UDE'sine giderdi.
+- UDE'nin `%USERPROFILE%\.uki` ayar dosyaları (son açılanlar listesi dahil) ve uygulama kipinde
+  uygulamanın ayar dosyası yedeklenip iş bitince geri konur; çalışma klasörü silinir.
+- Uygulama kipinde sürüm denetimi ağa çıkmaz; sayfa `cdp.mjs` ile sürülür.
+- 1.7.2 sınamaları paketli (MSIX) bir uygulamanın içinden çalıştırıldı. Oradan yapılan `HKCU`
+  yazımları paketin sanal kayıt defterinde kalıyor (WMI ile gerçek kayıt defterinden okunarak
+  denetlendi); sahadaki bozuk `.udf` ilişkisi gerçek kayıt defterine dokunmadan böyle
+  canlandırıldı. Başka bir ortamda aynı yazım gerçek kayıt defterini değiştirir.
+
 ## `macospasterich/`
 
 `UdeXml.java` ve `UdeDoc.java`, `ude-win-x64` projesindeki **referans UDF serializer**'ın
