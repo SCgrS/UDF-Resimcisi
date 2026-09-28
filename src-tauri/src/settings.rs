@@ -32,6 +32,9 @@ pub struct Ayarlar {
     pub tema: Tema,
     /// Açılışta GitHub'dan yeni sürüm sorulsun mu. Kapalıysa yalnızca Ayarlar'daki düğme sorar.
     pub otomatik_guncelleme: bool,
+    /// UDE kendiliğinden bulunamadığında kullanıcının "UDE'nin yerini göster" ile seçtiği exe.
+    /// Boşsa yok. Arayüzün ayar kaydı bunu göndermez; `ayarlari_kaydet` kayıtlı değeri korur.
+    pub ude_yolu: String,
     /// Yazarken her zaman `AYAR_SURUMU` olur; arayüzün göndermesi gerekmez.
     ///
     /// Alan düzeyinde `default` şart: kap düzeyindeki `#[serde(default)]` eksik alanları
@@ -48,6 +51,7 @@ impl Default for Ayarlar {
             cikti_klasoru: varsayilan_cikti_klasoru().to_string_lossy().to_string(),
             tema: Tema::Sistem,
             otomatik_guncelleme: true,
+            ude_yolu: String::new(),
             ayar_surumu: AYAR_SURUMU,
         }
     }
@@ -69,14 +73,18 @@ fn ayar_dosyasi() -> PathBuf {
 }
 
 pub fn yukle() -> Ayarlar {
-    let p = ayar_dosyasi();
-    let okunan: Ayarlar = match std::fs::read_to_string(&p) {
+    let a = oku();
+    kaldiriciya_bildir(&a);
+    a
+}
+
+/// Ayar dosyasını okur; `yukle`den farkı kaldırıcıya bildirmemesi (yalnız okuyan yerler için).
+pub fn oku() -> Ayarlar {
+    let okunan: Ayarlar = match std::fs::read_to_string(ayar_dosyasi()) {
         Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
         Err(_) => Ayarlar::default(),
     };
-    let a = tasi(okunan);
-    kaldiriciya_bildir(&a);
-    a
+    tasi(okunan)
 }
 
 /// Kaldırıcı "verileri sil" işaretlendiğinde nereyi temizleyeceğini bilsin diye kaydetme
@@ -150,6 +158,7 @@ mod tests {
         .unwrap();
         assert_eq!(a.tema, Tema::Sistem, "eksik alanlar varsayılanla dolmalı");
         assert!(a.otomatik_guncelleme, "1.6 öncesi dosyada alan yok; varsayılan açık");
+        assert!(a.ude_yolu.is_empty(), "1.7.2 öncesi dosyada UDE yolu yok");
         assert_eq!(a.ayar_surumu, 0, "eski dosyada sürüm alanı yok");
     }
 

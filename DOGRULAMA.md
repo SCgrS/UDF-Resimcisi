@@ -443,3 +443,71 @@ belgenin bellekte kurulanla aynılığı, Orijinal'den çıkınca önbelleğin b
   dokunulmadı.
 - Dikey fotoğrafın listede gösterilen "Orijinal" boyutu için PNG yüklenirken yine bir kez
   kodlanıyor; 9 resmin (3'ü dikey) eklenmesi 10,2 → 9,8 sn, belirgin değişmedi.
+
+## 1.7.2 sürümü — UDE'yi bulma
+
+Ortam: Windows 11 Pro 26200 (ofis), UDE 5.4.20 (`C:\Uyap\Uyap Kelime Islemci`, MSI kurulumu;
+kurulu programlar listesinde adı "Uyap Kelime İşlemci").
+
+### Sahadaki hata
+
+Bir kullanıcı 1.7.1'de açılışta "UYAP Doküman Editörü bu bilgisayarda bulunamadı" hatası aldı;
+UDE kurulu ve güncel. 1.7.1 UDE'yi yalnızca `HKCR\.udf` → ProgID → `shell\open\command` yolundan
+arıyordu.
+
+`HKCR`, kullanıcı (`HKCU\Software\Classes`) ve makine (`HKLM\Software\Classes`) kayıtlarının
+birleşimi; aynı değer ikisinde de varsa kullanıcınınki geçer. Birleşme değer düzeyinde:
+kullanıcı anahtarı varsayılan değer taşımıyorsa makinenin değeri görünüyor (bu bilgisayarda 12
+uzantıda bakıldı: `.bat`, `.docx`, `.csv` …). Yani hatanın çıkması için kullanıcı kökündeki
+`.udf` varsayılan değerinin *dolu* olması ve UDE'den başka bir yeri göstermesi gerekir.
+
+Bu bilgisayarda tam olarak böyle bir kayıt bulundu (gerçek kayıt defteri, WMI ile okundu):
+
+| Yer | Değer |
+|---|---|
+| `HKLM\Software\Classes\.udf` | `Adalet Bakanlığı.Uyap Kelime İşlemci` (UDE kurucusu) |
+| `…\Adalet Bakanlığı.Uyap Kelime İşlemci\shell\open\command` | `"C:\Uyap\Uyap Kelime Islemci\Uyap Doküman Editörü.exe" "getNewWPInstance" "EDITOR_TYPE_DOCUMENT" "%1" "%~s1"` |
+| `HKCU\Software\Classes\.udf` | `udf_auto_file` ("Birlikte aç" ile bir exe seçilince oluşan kayıt) |
+| `…\udf_auto_file\shell\open\command` | `"C:\Users\…\Desktop\kopya.exe" "%1"`; dosya artık yok |
+| `…\Explorer\FileExts\.udf\UserChoiceLatest\ProgId` | `Adalet Bakanlığı.Uyap Kelime İşlemci` |
+
+Çift tıklama Windows'un `UserChoiceLatest` seçimine baktığı için UDE'yi açıyor; `HKCR\.udf` ise
+silinmiş `kopya.exe`'yi gösteriyor. 1.7.1 exe'nin diskte olup olmadığına bakmadığı için bu
+bilgisayarda şans eseri "UDE var" dedi. Kullanıcı kökündeki ProgID'nin açma komutu hiç yoksa
+(örneğin kaldırılmış bir programdan kalmışsa) "UDE yok" der. Sahadaki hatanın en olası nedeni
+bu; kullanıcının bilgisayarına bakılamadı.
+
+### Yeni arama sırası (`src-tauri/src/ude.rs`)
+
+1. ProgID kayıtları: kullanıcının seçimi (`UserChoiceLatest`, `UserChoice`), `.udf`'nin birleşik,
+   makine ve kullanıcı kökündeki değerleri ve kurucunun bilinen ProgID adları; her biri üç kökte.
+   Komut UDE'nin `getNewWPInstance` jetonunu taşımalı, exe diskte olmalı.
+2. Kurulu programlar listesi: adı "Uyap Kelime …" olan kaydın `InstallLocation`'ı (64 ve 32 bit
+   görünüm, HKCU).
+3. `C:\Uyap\Uyap Kelime Islemci`.
+4. Kullanıcının **UDE'nin yerini göster** ile seçtiği exe (ayarlarda `ude_yolu`; adı
+   "uyap … doküman … .exe" değilse kabul edilmez). Düğme yalnızca UDE bulunamadığında görünür.
+
+Açma: 1. yoldan bulunduysa belge o kaydın komutuyla açılıyor (`ShellExecuteExW` +
+`SEE_MASK_CLASSKEY`); kullanıcının `.udf` için seçtiği varsayılan program başka bir şey olsa bile
+UDE açılır. Öbür yollarda exe doğrudan `getNewWPInstance EDITOR_TYPE_DOCUMENT "<belge>"` ile
+çalıştırılıyor. Kabuk yolu hata verirse doğrudan çalıştırma deneniyor.
+
+### Gerçek UDE ile sınama
+
+Kullanıcının ekranına dokunmamak için UDE ayrı, görünmeyen bir masaüstünde (`CreateDesktop`)
+açıldı; pencere başlığı `EnumDesktopWindows` ile okundu, süreç komut satırı WMI'dan alındı.
+Belgenin adı Türkçe harfli (`Dilekçe eki ğüşıöç ….udf`). UDE'nin `.uki` ayar dosyaları denemeden
+önce yedeklenip sonra geri kondu.
+
+| Yol | Sonuç |
+|---|---|
+| `ShellExecuteExW` + `SEE_MASK_CLASSKEY` (HKLM'deki UDE ProgID'si) | Belge 2,6 sn'de açıldı; başlık "Doküman Editörü v5.4.20 - Dilekçe eki ğüşıöç ….udf (…)" |
+| Exe doğrudan, 3 argüman | Belge 2,1 sn'de açıldı |
+
+Kabuğun UDE'ye verdiği komut satırı `… "EDITOR_TYPE_DOCUMENT" "C:\…\Dilekçe eki ğüşıöç ….udf"
+"%~s1"`: `%~s1` açılmıyor, UDE'ye olduğu gibi gidiyor ve yok sayılıyor. Doğrudan çalıştırmada üç
+argüman yeterli.
+
+`RegGetValueW` + `RRF_RT_REG_SZ`, `REG_EXPAND_SZ` değerleri de açarak okuyor
+(`batfile\shell\edit\command` ile denendi); komutun genişletilebilir yazılması sorun değil.

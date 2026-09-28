@@ -107,6 +107,10 @@ pub struct UretimSonucu {
 const UDE_YOK: &str = "UYAP Doküman Editörü bu bilgisayarda bulunamadı. Uygulama onsuz çalışmaz: \
                        önce UDE'yi kurun, sonra uygulamayı yeniden açın.";
 
+#[cfg(windows)]
+const UDE_DEGIL: &str = "Seçilen dosya UYAP Doküman Editörü değil. Aranan dosya genellikle \
+                         C:\\Uyap\\Uyap Kelime Islemci klasöründeki \"Uyap Doküman Editörü.exe\" dosyasıdır.";
+
 fn hata<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
 }
@@ -134,7 +138,9 @@ pub fn ayarlari_getir() -> Ayarlar {
 }
 
 #[tauri::command]
-pub fn ayarlari_kaydet(ayarlar: Ayarlar) -> Result<(), String> {
+pub fn ayarlari_kaydet(mut ayarlar: Ayarlar) -> Result<(), String> {
+    // Arayüz UDE yolunu göndermez (onu yalnızca "UDE'nin yerini göster" yazar); kayıtlı değer korunur.
+    ayarlar.ude_yolu = settings::oku().ude_yolu;
     settings::kaydet(&ayarlar).map_err(hata)
 }
 
@@ -144,17 +150,38 @@ pub fn surum() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+/// UDE'yi bulur; kendiliğinden bulunamazsa kullanıcının ayarlarda gösterdiği exe'ye bakar.
+#[cfg(windows)]
+fn ude_bul() -> Option<crate::ude::Ude> {
+    let elle = settings::oku().ude_yolu;
+    crate::ude::bul(Some(Path::new(&elle)).filter(|p| !p.as_os_str().is_empty()))
+}
+
 /// Arayüz, UDE yoksa üretme düğmesini hiç açmasın diye.
 #[tauri::command]
 pub fn ude_kurulu_mu() -> bool {
     #[cfg(windows)]
     {
-        crate::ude::kurulu_mu()
+        ude_bul().is_some()
     }
     #[cfg(not(windows))]
     {
         false
     }
+}
+
+/// "UDE'nin yerini göster": seçilen dosya UDE'nin exe'siyse ayarlara yazılır.
+#[tauri::command]
+pub fn ude_yerini_kaydet(yol: String) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        if !crate::ude::gecerli_exe_mi(Path::new(&yol)) {
+            return Err(UDE_DEGIL.to_string());
+        }
+    }
+    let mut ayarlar = settings::oku();
+    ayarlar.ude_yolu = yol;
+    settings::kaydet(&ayarlar).map_err(hata)
 }
 
 // ---------------------------------------------------------------------------
@@ -407,8 +434,13 @@ pub async fn udfde_ac(
     cikti_klasoru: String,
     oturum: State<'_, Oturum>,
 ) -> Result<UretimSonucu, String> {
-    if !ude_kurulu_mu() {
-        return Err(UDE_YOK.to_string());
+    #[cfg(windows)]
+    let ude = ude_bul().ok_or(UDE_YOK)?;
+    #[cfg(not(windows))]
+    {
+        if !ude_kurulu_mu() {
+            return Err(UDE_YOK.to_string());
+        }
     }
     let (specler, govde) = belge_hazirla(&oturum)?;
     let klasor = PathBuf::from(&cikti_klasoru);
@@ -424,7 +456,7 @@ pub async fn udfde_ac(
         })?;
 
         #[cfg(windows)]
-        crate::ude::belgeyi_ac(&yol).map_err(|e| {
+        crate::ude::belgeyi_ac(&ude, &yol).map_err(|e| {
             format!(
                 "Belge kaydedildi ({}) ama UYAP Doküman Editörü açılamadı: {e}",
                 yol.display()

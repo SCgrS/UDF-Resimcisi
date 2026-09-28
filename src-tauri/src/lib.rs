@@ -48,6 +48,7 @@ pub fn run() {
             commands::klasorde_goster,
             commands::klasoru_ac,
             commands::ude_kurulu_mu,
+            commands::ude_yerini_kaydet,
             commands::surum,
             commands::guncelleme_denetle,
             commands::guncellemeyi_kur,

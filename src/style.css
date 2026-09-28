@@ -205,6 +205,8 @@ button.kucuk:hover:not(:disabled) { background: var(--vurgu-zemin); color: var(-
 .eylem .birincil { margin-top: 6px; }
 /* "Klasörü aç" büyük düğmenin altında, ayrı satırda, göze batmadan durur. */
 .eylem .kucuk { margin-top: 2px; }
+/* "UDE'nin yerini göster": hata satırının altındaki tek çıkış yolu, göze görünsün. */
+.eylem .kucuk.vurgulu { color: var(--vurgu); border-color: var(--vurgu); }
 .boyut { margin: 0; color: var(--alt-metin); font-size: 13px; }
 .durum { margin: 0; color: var(--alt-metin); }
 .durum.iyi { color: var(--iyi); font-weight: 600; }

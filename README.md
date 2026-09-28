@@ -20,7 +20,9 @@ açılır; oradan kopyalayıp dilekçelere yapıştırılabilir.
 ### [⬇ UDF-Resimcisi-kurulum.exe indir](https://github.com/SCgrS/UDF-Resimcisi/releases/latest/download/UDF-Resimcisi-kurulum.exe)
 
 Tek dosya, 2 MB. Windows 10 ve üzeri, 64 bit; yönetici hakkı gerekmez. UYAP Doküman
-Editörü kurulu olmalıdır: Uygulama belgeyi UDE'de açar.
+Editörü kurulu olmalıdır: Uygulama belgeyi UDE'de açar. UDE'yi kendisi bulur; kurulu olduğu
+hâlde bulamazsa **UDE'nin yerini göster** düğmesiyle `Uyap Doküman Editörü.exe` dosyasını bir
+kez seçmeniz yeter (genellikle `C:\Uyap\Uyap Kelime Islemci` klasöründedir).
 
 1. Yukarıdaki bağlantıya tıklayıp dosyayı indirin.
 2. İndirilen `UDF-Resimcisi-kurulum.exe` dosyasına **çift tıklayın**.
@@ -187,7 +189,8 @@ ve geliştirici bağlantısı bulunur.
 
 Belge üretimi tamamen yereldir; resimleriniz hiçbir yere gönderilmez, telemetri yoktur.
 
-- Ayarlar: `%APPDATA%\UDF Resimcisi\ayarlar.json`.
+- Ayarlar: `%APPDATA%\UDF Resimcisi\ayarlar.json`. UDE'nin yerini elle gösterdiyseniz o yol da
+  burada durur.
 - Üretilen belgeler: seçtiğiniz kaydetme klasörü (varsayılan `Belgelerim\UDF Resimcisi`).
 - Kayıt defteri: yalnızca `HKCU\Software\UDF Resimcisi\CiktiKlasoru` değeri; kaldırıcı
   hangi klasörü temizleyeceğini buradan öğrenir.
@@ -208,7 +211,7 @@ kayıt defteri değeri yukarıdaki yerlerde kalır.
 ## Bilinen sınırlar
 
 - Yalnızca Windows ve yalnızca UYAP Doküman Editörü kuruluyken. UDE bulunamazsa uygulama
-  bunu söyler ve belge üretmez.
+  bunu söyler, belge üretmez ve UDE'nin yerini göstermenizi ister.
 - Kod imzalama sertifikası olmadığından SmartScreen uyarısı her yeni sürümde çıkar.
 - GIF'lerin yalnızca ilk karesi alınır. WEBP, BMP, TIFF ve GIF, UDE'nin tanımadığı biçimler
   olduğu için PNG'ye çevrilir; çevirme kayıpsızdır ama dosya boyutu değişebilir.

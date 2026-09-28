@@ -20,6 +20,7 @@ const el = {
   klasoruAc: $("klasoru-ac"),
   boyut: $("boyut"),
   durum: $("durum"),
+  udeSec: $("ude-sec"),
   // sağ tık menüsü
   baglamMenu: $("baglam-menu"),
   baglamYapistir: $("baglam-yapistir"),
@@ -336,6 +337,26 @@ async function ac() {
   }
 }
 
+// UDE kendiliğinden bulunamadığında kullanıcı exe'sini bir kez gösterir; Rust tarafı dosyanın
+// UDE olduğunu denetleyip ayarlara yazar.
+async function udeYeriniGoster() {
+  const secim = await dialog.open({
+    title: "Uyap Doküman Editörü.exe dosyasını seçin (genellikle C:\\Uyap\\Uyap Kelime Islemci)",
+    filters: [{ name: "UYAP Doküman Editörü", extensions: ["exe"] }],
+  });
+  if (!secim) return;
+  try {
+    await invoke("ude_yerini_kaydet", { yol: secim });
+    udeVar = await invoke("ude_kurulu_mu");
+  } catch (e) {
+    durum(String(e), "kotu");
+    return;
+  }
+  el.udeSec.hidden = udeVar;
+  uretDugmesiniAyarla();
+  if (udeVar) durum("UYAP Doküman Editörü bulundu; belgeler onunla açılacak.", "iyi");
+}
+
 // "Klasörü aç": son üretilen belge varsa onu seçili gösterir, yoksa kaydetme klasörünü açar.
 async function klasoruAc() {
   if (sonUretilenYol) {
@@ -434,6 +455,7 @@ el.temizle.addEventListener("click", async () => {
 
 el.uret.addEventListener("click", ac);
 el.klasoruAc.addEventListener("click", klasoruAc);
+el.udeSec.addEventListener("click", udeYeriniGoster);
 
 // Genel seçim: bütün resimler bu basamağa geçer, tek tek yapılan ayarlar silinir.
 el.kalite.addEventListener("change", async () => {
@@ -580,8 +602,9 @@ window.addEventListener("drop", (e) => e.preventDefault());
   }
   if (!udeVar) {
     uretDugmesiniAyarla();
+    el.udeSec.hidden = false;
     durum(
-      "UYAP Doküman Editörü bu bilgisayarda bulunamadı. Uygulama onsuz çalışmaz: önce UDE'yi kurun, sonra uygulamayı yeniden açın.",
+      "UYAP Doküman Editörü bu bilgisayarda bulunamadı. Uygulama onsuz çalışmaz: UDE kurulu değilse kurup uygulamayı yeniden açın; kuruluysa yerini gösterin.",
       "kotu"
     );
   }
