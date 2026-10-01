@@ -9,11 +9,10 @@ pub mod commands;
 pub mod image_io;
 pub mod settings;
 pub mod udf;
+pub mod uretilenler;
 
 #[cfg(windows)]
 pub mod bellek;
-#[cfg(windows)]
-pub mod kayit;
 #[cfg(windows)]
 pub mod ude;
 

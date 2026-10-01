@@ -172,7 +172,8 @@ klasörünün güncel yolunu uygulama `HKCU\Software\UDF Resimcisi\CiktiKlasoru`
 
 Kaydetme klasörü hiçbir zaman özyinelemeli silinmiyor: yalnızca `*.udf` siliniyor, klasör de
 ancak boş kaldıysa kaldırılıyor. Kullanıcı kaydetme klasörü olarak "Belgelerim"in kendisini
-seçmiş olabilir.
+seçmiş olabilir. (1.7.3'te değişti: `*.udf` kullanıcının kendi belgelerini de kapsıyordu;
+bkz. "1.7.3 sürümü".)
 
 Bir kez, uygulama kapatıldıktan ~1 sn sonra kaldırıcı çalıştırıldığında `%APPDATA%` klasörü
 silinemedi (dosya tutamacı hâlâ açıktı). Kanca artık iki saniye bekleyip bir kez daha deniyor,
@@ -548,3 +549,62 @@ kaydı 1.7.2.
 - UYAP'ın sitesindeki `.exe` kurucusu incelenmedi; bu bilgisayardaki kurulum MSI. Başka bir yere
   kuruyorsa UDE yine `.udf` kaydından, kurulu programlar listesinden ya da elle gösterilerek
   bulunur.
+
+## 1.7.3 sürümü — kaldırıcı yalnızca uygulamanın belgelerini siler
+
+### Hata
+
+1.3.0'dan beri kaldırıcıda **Uygulama verilerini sil** işaretlenince kanca, kaydetme
+klasöründeki **bütün** `*.udf` dosyalarını kalıcı olarak siliyordu (`Delete "$0\*.udf"`).
+Hangisini uygulamanın ürettiğine bakılmıyordu. Kaydetme klasörü Masaüstü ya da bir dava
+klasörüyse kullanıcının UDE'de yazdığı dilekçeler de gidiyordu. Uygulamanın ürettiği bir belgeyi
+UDE'de açıp üzerine dilekçe yazan kullanıcının belgesi de aynı şekilde siliniyordu. README "uygulamanın
+üretmediği dosyalara dokunulmaz" diyordu; bu `.udf` için doğru değildi. Kişisel veri ve
+güvenlik denetiminde bulundu.
+
+### Çözüm
+
+- Uygulama ürettiği her belgeyi yolu, boyutu ve son değişme zamanıyla
+  `%APPDATA%\UDF Resimcisi\uretilenler.json`'a yazar (`src-tauri/src/uretilenler.rs`); diskte
+  artık olmayanlar listeden düşer.
+- Kaldırıcı (`src-tauri/nsis/hooks.nsh`) program dosyalarını silmeden önce exe'yi kendi geçici
+  klasörüne kopyalar, ardından `--kaldirma-temizligi` ile çalıştırır. Uygulama pencere açmadan
+  yalnızca listede olup boyutu ve değişme zamanı kayıttakiyle aynı kalan `.udf` belgelerini siler.
+- Kaydetme klasörü yalnızca adı `UDF Resimcisi` ise (varsayılan klasör) ve boş kaldıysa kaldırılır.
+- Her hata "dokunma" yönüne düşer: liste yoksa ya da bozuksa, exe kopyalanamadıysa, belge
+  değiştiyse silinmez.
+- Kayıt defterine artık yazılmıyor (`kayit.rs` silindi); 1.7.2'ye kadar yazılan
+  `HKCU\Software\UDF Resimcisi` anahtarını kaldırıcı yine siler.
+- 1.7.3'ten önce üretilen belgeler listede olmadığı için kaldırıcı onlara dokunmaz.
+
+### Sınama
+
+Birim testleri (`uretilenler.rs`, 9 test): üretilen ve değişmemiş belge silinir; aynı klasördeki
+listede olmayan `.udf` kalır; üzerine kaydedilen (boyutu ya da yalnızca değişme zamanı farklı)
+belge kalır; kendi klasörü boşalınca kalkar, kullanıcının seçtiği klasör boş kalsa da durur;
+liste yoksa ya da bozuksa hiçbir şey silinmez; listeye elle `.udf` olmayan yol yazılsa da
+silinmez; Türkçe harfli yol. `cargo test` 71/71, `cargo clippy --all-targets -- -D warnings` temiz.
+
+Kaldırma kancası (`tools/kaldirma-sinama.ps1`; kanca, Tauri şablonundaki sırayla küçük bir NSIS
+programına gömüldü, 1.7.3'ün yerelde derlenen gerçek exe'siyle):
+
+| Dosya / yer | 1.7.2, kutu işaretli | 1.7.3, kutu işaretli | 1.7.3, kutu işaretsiz | 1.7.3, güncelleme |
+|---|---|---|---|---|
+| Üretilen belge, kendi klasöründe | silindi | silindi | duruyor | duruyor |
+| Üretilen belge, Masaüstü'nde | silindi | silindi | duruyor | duruyor |
+| Kullanıcının dilekçesi (listede yok), Masaüstü'nde | **silindi** | duruyor | duruyor | duruyor |
+| Üretilen, sonra üzerine kaydedilen | **silindi** | duruyor | duruyor | duruyor |
+| `not.txt`, Masaüstü'nde | duruyor | duruyor | duruyor | duruyor |
+| `Belgeler\UDF Resimcisi` (boşaldı) | kalktı | kalktı | duruyor | duruyor |
+| Masaüstü klasörü | duruyor | duruyor | duruyor | duruyor |
+| Ayar klasörü, kayıt defteri anahtarı | kalktı | kalktı | duruyor | duruyor |
+
+İlk denemede sınama programının içindeki kurulum yolu Türkçe harfleri bozan bir kodlamayla
+yazıldı; kanca exe'yi bulamadı ve hiçbir belgeye dokunmadı. Bu, "exe yoksa dokunma" yolunun
+da çalıştığını gösterdi; sınama dosyası BOM'lu UTF-8'e çevrilince tablo yukarıdaki gibi çıktı.
+
+Uçtan uca (`tools/ude-sinama.ps1 -Kip uygulama`, görünmeyen masaüstü, gerçek UDE 5.4.20, `APPDATA`
+geçici klasöre çevrildi): **UDF'de aç** belgeyi üretti (8 KB) ve UDE'de açtı; liste o belgeyi
+doğru boyutla yazdı. Belge UDE'de açılıp kapatılana dek 100 ms arayla izlendi: boyut ve değişme
+zamanı listedeki kayıtla birebir aynı kaldı. UDE açarken belgeye yazmıyor, yani UDE'de açılmış
+ama üzerine kaydedilmemiş belge kaldırılırken silinir.

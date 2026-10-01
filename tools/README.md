@@ -59,6 +59,27 @@ tools\ude-sinama.ps1 -Kip uygulama -Exe <exe>       # uygulamanın kendisi: aç�
   yazımları paketin sanal kayıt defterinde kalıyor (WMI ile gerçek kayıt defterinden okunarak
   denetlendi); sahadaki bozuk `.udf` ilişkisi gerçek kayıt defterine dokunmadan böyle
   canlandırıldı. Başka bir ortamda aynı yazım gerçek kayıt defterini değiştirir.
+- Uygulama kipi `ayarlar.json`'u geri koyar ama üretilen belgelerin listesine
+  (`uretilenler.json`) dokunmaz. 1.7.3'te betik `APPDATA` geçici bir klasöre çevrilerek
+  çalıştırıldı; listeye o klasörde bakıldı.
+
+## `kaldirma-sinama.ps1` — kaldırma kancası
+
+`DOGRULAMA.md` "1.7.3 sürümü" tablosunun kaynağı. `src-tauri/nsis/hooks.nsh`'i Tauri'nin
+kaldırıcısındaki sırayla (PREUNINSTALL, program exe'sinin silinmesi, POSTUNINSTALL) küçük bir
+NSIS programına gömer ve uygulamanın gerçek exe'siyle çalıştırır. Üç durumu dener: kutu
+işaretli, işaretsiz, güncelleme (`/UPDATE`). Gerçek ayar klasörüne, Belgelerim'e ve kayıt
+defterine dokunmaz: kancadaki bu yollar sınama klasörüne çevrilir, çevrilmemiş bir yol kalırsa
+betik durur; exe'ye `APPDATA` olarak sınama klasörü verilir.
+
+```powershell
+tools\kaldirma-sinama.ps1 -Exe src-tauri\target\release\udf-resimcisi.exe
+git show v1.7.2:src-tauri/nsis/hooks.nsh > $env:TEMP\eski.nsh
+tools\kaldirma-sinama.ps1 -Exe <herhangi bir exe> -Kanca $env:TEMP\eski.nsh   # 1.7.2'nin kancası
+```
+
+`makensis` Tauri'nin indirdiği NSIS'ten (`%LOCALAPPDATA%\tauri\NSIS`) alınır; bir kez
+`npx tauri build` çalıştırılmış olmalı.
 
 ## `macospasterich/`
 

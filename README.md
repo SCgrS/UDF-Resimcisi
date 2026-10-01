@@ -192,8 +192,11 @@ Belge üretimi tamamen yereldir; resimleriniz hiçbir yere gönderilmez, telemet
 - Ayarlar: `%APPDATA%\UDF Resimcisi\ayarlar.json`. UDE'nin yerini elle gösterdiyseniz o yol da
   burada durur.
 - Üretilen belgeler: seçtiğiniz kaydetme klasörü (varsayılan `Belgelerim\UDF Resimcisi`).
-- Kayıt defteri: yalnızca `HKCU\Software\UDF Resimcisi\CiktiKlasoru` değeri; kaldırıcı
-  hangi klasörü temizleyeceğini buradan öğrenir.
+  Uygulama ürettiği her belgenin yolunu, boyutunu ve kayıt zamanını
+  `%APPDATA%\UDF Resimcisi\uretilenler.json` dosyasına yazar; kaldırıcı yalnızca bunları siler
+  (aşağıda).
+- Kayıt defteri: uygulama artık bir şey yazmaz. 1.7.2'ye kadar yazılan
+  `HKCU\Software\UDF Resimcisi` anahtarını kaldırıcı siler.
 - Ağ: yalnızca sürüm denetiminde `api.github.com`'a tek bir sorgu (açılışta, kapatılabilir;
   ve düğmeye bastığınızda). Güncelleme derseniz kurulum dosyası GitHub'dan
   `%TEMP%\UDF Resimcisi` altına indirilip çalıştırılır. Resimleriniz ağa hiçbir zaman çıkmaz.
@@ -201,12 +204,19 @@ Belge üretimi tamamen yereldir; resimleriniz hiçbir yere gönderilmez, telemet
 ## Kaldırma
 
 **Ayarlar → Uygulamalar → Uygulamalar ve özellikler** listesinden **UDF Resimcisi**'ni seçip
-**Kaldır**'a basın. Kaldırıcıdaki **Uygulama verilerini sil** kutusunu işaretlerseniz ayar
-dosyası, kayıt defteri değeri ve kaydetme klasöründeki `.udf` belgeleri de silinir. Kaydetme
-klasöründe uygulamanın üretmediği başka dosyalar varsa onlara dokunulmaz, klasör yerinde kalır.
+**Kaldır**'a basın. Kaldırıcıdaki **Uygulama verilerini sil** kutusunu işaretlerseniz ayarlar
+ve uygulamanın ürettiği belgeler de silinir. Yalnızca uygulamanın kendi ürettiği ve o günden
+beri değişmemiş belgeler silinir:
+
+- Kaydetme klasöründeki başka `.udf` belgelerinize (ör. UDE'de yazdığınız dilekçeler) ve başka
+  dosyalara dokunulmaz.
+- Uygulamanın ürettiği bir belgeyi UDE'de açıp üzerine kaydettiyseniz o belge de kalır.
+- Seçtiğiniz kaydetme klasörü yerinde kalır; yalnızca varsayılan `Belgelerim\UDF Resimcisi`
+  klasörü boş kaldıysa kaldırılır.
+- 1.7.3'ten önceki sürümlerin ürettiği belgeler listede olmadığı için yerinde kalır.
 
 Taşınabilir sürüm hiçbir şey kurmaz; `.exe` dosyasını silmeniz yeterlidir. Ayar dosyası ve
-kayıt defteri değeri yukarıdaki yerlerde kalır.
+belge listesi yukarıdaki yerde (`%APPDATA%\UDF Resimcisi`) kalır.
 
 ## Bilinen sınırlar
 

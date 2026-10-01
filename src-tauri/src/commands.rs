@@ -134,7 +134,7 @@ fn secenekler(ayri_sayfa: bool) -> BuildOptions {
 
 #[tauri::command]
 pub fn ayarlari_getir() -> Ayarlar {
-    settings::yukle()
+    settings::oku()
 }
 
 #[tauri::command]
@@ -454,6 +454,9 @@ pub async fn udfde_ac(
             let _ = std::fs::remove_file(&yol);
             format!("Dosya yazılamadı ({}): {e}", yol.display())
         })?;
+        // Kaldırıcı "verileri sil" işaretlenince yalnızca bu listedeki belgeleri siler. Liste
+        // yazılamazsa belge yalnızca o temizliğin dışında kalır; üretim yine başarılıdır.
+        let _ = crate::uretilenler::kaydet(&yol);
 
         #[cfg(windows)]
         crate::ude::belgeyi_ac(&ude, &yol).map_err(|e| {

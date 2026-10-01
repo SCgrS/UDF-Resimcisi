@@ -65,35 +65,25 @@ pub fn varsayilan_cikti_klasoru() -> PathBuf {
     ev.join("Documents").join("UDF Resimcisi")
 }
 
-fn ayar_dosyasi() -> PathBuf {
+/// `%APPDATA%\UDF Resimcisi`: ayar dosyası ve üretilen belgelerin listesi burada durur.
+pub fn ayar_klasoru() -> PathBuf {
     let base = std::env::var("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|_| varsayilan_cikti_klasoru());
-    base.join("UDF Resimcisi").join("ayarlar.json")
+    base.join("UDF Resimcisi")
 }
 
-pub fn yukle() -> Ayarlar {
-    let a = oku();
-    kaldiriciya_bildir(&a);
-    a
+fn ayar_dosyasi() -> PathBuf {
+    ayar_klasoru().join("ayarlar.json")
 }
 
-/// Ayar dosyasını okur; `yukle`den farkı kaldırıcıya bildirmemesi (yalnız okuyan yerler için).
+/// Ayar dosyasını okur.
 pub fn oku() -> Ayarlar {
     let okunan: Ayarlar = match std::fs::read_to_string(ayar_dosyasi()) {
         Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
         Err(_) => Ayarlar::default(),
     };
     tasi(okunan)
-}
-
-/// Kaldırıcı "verileri sil" işaretlendiğinde nereyi temizleyeceğini bilsin diye kaydetme
-/// klasörünü kayıt defterine not eder. Windows dışında bir şey yapmaz.
-fn kaldiriciya_bildir(a: &Ayarlar) {
-    #[cfg(windows)]
-    crate::kayit::cikti_klasorunu_yaz(&a.cikti_klasoru);
-    #[cfg(not(windows))]
-    let _ = a;
 }
 
 /// Eski biçimli ayarları güncel varsayılanlara taşır.
@@ -117,7 +107,6 @@ pub fn kaydet(a: &Ayarlar) -> Result<()> {
     yazilacak.ayar_surumu = AYAR_SURUMU;
     let s = serde_json::to_string_pretty(&yazilacak)?;
     std::fs::write(&p, s).with_context(|| format!("Ayarlar yazılamadı: {}", p.display()))?;
-    kaldiriciya_bildir(&yazilacak);
     Ok(())
 }
 

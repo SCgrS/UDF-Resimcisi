@@ -6,13 +6,35 @@
 ; klasöründe durur; ikisi de o klasörlere girmediği için kutu işaretlense bile yerinde
 ; kalıyordu. Burada onları da temizliyoruz.
 ;
-; $DeleteAppDataCheckboxState ve $UpdateMode değişkenleri Tauri'nin şablonundan gelir; bu
-; makro Section Uninstall'ın içine, o değişkenler okunduktan sonra yerleştirilir.
+; Belgeleri kaldırıcı kendisi seçmez. 1.7.2'ye kadar kaydetme klasöründeki bütün .udf
+; dosyalarını siliyordu; klasör Masaüstü ya da bir dava klasörüyse kullanıcının UDE'de yazdığı
+; belgeler de gidiyordu. Artık uygulamanın kendisi `--kaldirma-temizligi` ile çalıştırılır ve
+; yalnızca kendi ürettiği, o günden beri değişmemiş belgeleri siler (bkz.
+; src-tauri/src/uretilenler.rs). Program dosyaları silindikten sonra da çalışabilsin diye exe,
+; kaldırma başlamadan kaldırıcının geçici klasörüne kopyalanır.
+;
+; $DeleteAppDataCheckboxState ve $UpdateMode Tauri'nin şablonundan gelir; ikisi de kaldırma
+; bölümü başlamadan (onay sayfasında, komut satırından) belirlenir. Güncellemede eski sürümün
+; kaldırıcısı /UPDATE ile çalışır; o zaman hiçbir şey silinmez.
+
+!macro NSIS_HOOK_PREUNINSTALL
+  ${If} $DeleteAppDataCheckboxState = 1
+  ${AndIf} $UpdateMode <> 1
+    InitPluginsDir
+    CopyFiles /SILENT "$INSTDIR\${MAINBINARYNAME}.exe" "$PLUGINSDIR\${MAINBINARYNAME}.exe"
+  ${EndIf}
+!macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
   ${If} $DeleteAppDataCheckboxState = 1
   ${AndIf} $UpdateMode <> 1
     SetShellVarContext current
+
+    ; Uygulamanın ürettiği belgeler. Listeleri ayar klasöründe durduğu için o silinmeden önce.
+    ; Exe kopyalanamadıysa belgelere dokunulmaz.
+    ${If} ${FileExists} "$PLUGINSDIR\${MAINBINARYNAME}.exe"
+      ExecWait '"$PLUGINSDIR\${MAINBINARYNAME}.exe" --kaldirma-temizligi'
+    ${EndIf}
 
     ; Ayar klasörü baştan sona uygulamaya ait: olduğu gibi kaldırılır. Uygulama yeni
     ; kapanmışsa ayarlar.json'un tutamacı bir an daha açık kalabiliyor — o yüzden bir kez
@@ -26,20 +48,7 @@
       RMDir /r /REBOOTOK "$APPDATA\UDF Resimcisi"
     ${EndIf}
 
-    ; Kaydetme klasörü kullanıcının seçtiği herhangi bir yer olabilir — "Belgelerim"in
-    ; kendisi bile. Bu yüzden asla özyinelemeli silinmez: yalnızca uygulamanın ürettiği
-    ; .udf dosyaları silinir, klasör de ancak geriye bir şey kalmadıysa kaldırılır.
-    ; Yolu uygulama HKCU'ya yazar (bkz. src-tauri/src/kayit.rs).
-    ReadRegStr $0 HKCU "Software\UDF Resimcisi" "CiktiKlasoru"
-    ${If} $0 != ""
-      Delete "$0\*.udf"
-      RMDir "$0"
-    ${EndIf}
-
-    ; Uygulama hiç çalıştırılmadıysa kayıt defterinde iz yoktur; varsayılan yeri de dene.
-    Delete "$DOCUMENTS\UDF Resimcisi\*.udf"
-    RMDir "$DOCUMENTS\UDF Resimcisi"
-
+    ; 1.7.2'ye kadar uygulama kaydetme klasörünün yolunu kaldırıcı için buraya yazıyordu.
     DeleteRegKey HKCU "Software\UDF Resimcisi"
   ${EndIf}
 !macroend
