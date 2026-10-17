@@ -608,3 +608,15 @@ geçici klasöre çevrildi): **UDF'de aç** belgeyi üretti (8 KB) ve UDE'de aç
 doğru boyutla yazdı. Belge UDE'de açılıp kapatılana dek 100 ms arayla izlendi: boyut ve değişme
 zamanı listedeki kayıtla birebir aynı kaldı. UDE açarken belgeye yazmıyor, yani UDE'de açılmış
 ama üzerine kaydedilmemiş belge kaldırılırken silinir.
+
+## 1.7.4 sürümü — rustls güvenlik güncellemesi
+
+Görünür değişiklik yok. Uygulamanın sürüm denetiminde ve kurulum dosyası indirmesinde (ureq) kullanılan
+rustls 0.23.43'ten 0.23.46'ya yükseltildi: 0.23.13–0.23.44 sürümleri TLS 1.3 el sıkışma iletilerini şifreleme
+düzeyi sınırının ötesinde de kabul ediyordu (GHSA-2mjx-qc3c-rqvc, orta). Kodda değişiklik yok, yalnız `Cargo.lock`.
+`cargo test` 71/71, `cargo clippy --all-targets -- -D warnings` temiz.
+
+Aynı gün depoya GitHub denetimleri eklendi: CodeQL gelişmiş kurulum (actions, java-kotlin, javascript-typescript,
+rust; açık uyarı varsa iş başarısız olur) ve Dependency Review. İkisi de 0 uyarıyla geçti. Dependabot'un glib 0.18.5
+uyarısı (GHSA-wrw7-89jp-8q8g) "kullanılmıyor" gerekçesiyle kapatıldı: glib yalnız Linux'taki GTK yığınında, Windows
+derlemesine girmiyor (`cargo tree -i glib --target x86_64-pc-windows-msvc` boş).
