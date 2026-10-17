@@ -242,6 +242,11 @@ Kurulum paketleri `src-tauri/target/release/bundle/` altına (MSI ve NSIS), taş
 aracı `src-tauri/examples/olcum.rs`; öteki yardımcılar [tools/README.md](tools/README.md)
 dosyasında anlatılıyor.
 
+## Otomatik denetimler
+
+[![CodeQL Advanced](https://github.com/SCgrS/UDF-Resimcisi/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/SCgrS/UDF-Resimcisi/actions/workflows/codeql.yml)\
+[![Dependency Review](https://github.com/SCgrS/UDF-Resimcisi/actions/workflows/dependency-review.yml/badge.svg?branch=main)](https://github.com/SCgrS/UDF-Resimcisi/actions/workflows/dependency-review.yml)
+
 ## Teşekkür
 
 Bu uygulama, aşağıdaki bağımsız geliştiricilerin emeği üzerine kurulu; her biri kendi
