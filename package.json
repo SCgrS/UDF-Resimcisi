@@ -3,7 +3,7 @@
   "version": "1.7.4",
   "private": true,
   "description": "Resmi ideal çözünürlükte, kalitesini koruyarak UDF belgesine koyan masaüstü uygulaması",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",

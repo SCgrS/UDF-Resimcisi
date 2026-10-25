@@ -270,4 +270,4 @@ lisansıyla kullanıldı.
   referans UDF yazıcısı; Rust portunun doğruluğu bu iki dosyayla bayt bayt karşılaştırılarak
   kanıtlandı. Ayrıntı: [tools/macospasterich/KAYNAK.md](tools/macospasterich/KAYNAK.md).
 
-Lisans: MIT. Ayrıntılar için [LICENSE](LICENSE) dosyasına bakınız.
+Lisans: AGPL-3.0. Ayrıntılar için [LICENSE](LICENSE) dosyasına bakınız.

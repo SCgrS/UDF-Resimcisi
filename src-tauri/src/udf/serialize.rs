@@ -1,4 +1,6 @@
 //! Belge modeli → `content.xml`. `macospasterich/UdeXml.java` referansının Rust portu.
+//! Uyarlandığı kod: Copyright (c) 2026 Said Surucu, MIT lisansı (izin metni
+//! `tools/macospasterich/LICENSE-ude-win-x64`'te).
 //!
 //! Kritik kural: `<content>` içindeki CDATA belgenin düz metnidir; `<elements>` içindeki her
 //! eleman bu metne `startOffset` + `length` ile bağlanır. Offset'ler **kod noktası** (code

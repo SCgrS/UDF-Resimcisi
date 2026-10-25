@@ -12,5 +12,5 @@ bu Java uygulamasının portudur. Doğruluğu, aynı girdi için iki uygulamanı
 `content.xml`'i **bayt bayt karşılaştırarak** kanıtlandı (bkz. `DOGRULAMA.md`). Karşılaştırmanın
 tekrar edilebilmesi için referans kaynağın da depoda bulunması gerekiyor.
 
-`ProtoMain.java`, `BuyukGorsel.java` ve `IconGen.java` bu projeye aittir (MIT, © 2026 Çağrı Şahin);
+`ProtoMain.java`, `BuyukGorsel.java` ve `IconGen.java` bu projeye aittir (AGPL-3.0, depo kökündeki LICENSE);
 yalnızca yukarıdaki iki dosya dışarıdan gelmedir.

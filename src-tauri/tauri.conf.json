@@ -28,7 +28,7 @@
     "active": true,
     "targets": ["msi", "nsis"],
     "publisher": "Çağrı Şahin",
-    "copyright": "MIT",
+    "copyright": "AGPL-3.0",
     "category": "Productivity",
     "shortDescription": "Resmi ideal çözünürlükte UDF'ye koyar",
     "longDescription": "Fotoğraf, tarama veya ekran görüntüsünü ideal çözünürlükte, kalitesini koruyarak bir .udf belgesine koyar; belge UYAP Doküman Editörü'nde açılır, oradan dilekçeye yapıştırılır.",

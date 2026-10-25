@@ -1,4 +1,6 @@
 //! UDF belge modeli. `macospasterich/UdeDoc.java` referansının Rust portu.
+//! Uyarlandığı kod: Copyright (c) 2026 Said Surucu, MIT lisansı (izin metni
+//! `tools/macospasterich/LICENSE-ude-win-x64`'te).
 //!
 //! Saf veri: dosya sistemi, Tauri veya Windows bağımlılığı yok — `cargo test` ile
 //! doğrudan sınanabilir.
