@@ -231,7 +231,7 @@ UDF Resimcisi aşağıdaki açık kaynak paketlere bağlıdır. Her biri kendi l
 
 UDF Resimcisi, bağımsız geliştiricilerin emeği üzerine kuruldu. Uygulamanın çatısı Tauri'nin, resimleri işleyen image'ın ve
 yukarıda adı geçen bütün paketlerin geliştiricilerine teşekkür ederim. UDF yazıcısının doğruluğunu sınamayı sağlayan
-[ude-win-x64](https://github.com/saidsurucu/ude-win-x64) projesi için Said Surucu'ya ayrıca teşekkür ederim.
+[ude-win-x64](https://github.com/saidsurucu/ude-win-x64) projesi için Said Sürücü'ye ([@saidsurucu](https://github.com/saidsurucu)) ayrıca teşekkür ederim.
 
 ---
 
